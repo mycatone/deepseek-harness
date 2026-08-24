@@ -5,8 +5,8 @@
 // while the settings document records only that reference. Each saved row
 // appears after route topology invalidation without presenting liveness as
 // provider status. The customized-settings fold writes its curated fields —
-// the endpoint, and a declared route's own name and protocol — as merge
-// patches against the stored profile. Zero model calls: configuration is pure
+// the endpoint, model capacities, and a declared route's own name and protocol
+// — as merge patches against the stored profile. Zero model calls: configuration is pure
 // settings/credentials/llm-domain traffic, so there is no fixture and a
 // stray stream would fail loud because the adapter registry is empty. The provider under test is
 // minimax-cn so a developer's real ANTHROPIC/OPENAI environment keys can
@@ -230,6 +230,8 @@ describe('web e2e: Models settings page configures a dormant provider', () => {
     expect(await dialog.getByLabel('推理强度').count()).toBe(0)
     await dialog.getByRole('button', { name: '添加模型' }).click()
     await dialog.getByLabel('模型 ID 1').fill('acme-large')
+    await dialog.getByRole('button', { name: '容量 1' }).click()
+    await dialog.getByLabel('上下文窗口 1').fill('32768')
     await dialog.getByRole('button', { name: '创建提供方', exact: true }).click()
 
     const row = dialog.getByText('Acme Gateway', { exact: true }).first()
@@ -261,6 +263,10 @@ describe('web e2e: Models settings page configures a dormant provider', () => {
     expect(await protocol.inputValue()).toBe('openai-completions')
     const name = dialog.getByLabel('显示名称', { exact: true })
     expect(await name.inputValue()).toBe('Acme Gateway')
+    // A configured capacity is visible as soon as the stored profile reopens;
+    // the user does not have to discover and press the row disclosure again.
+    const contextWindow = dialog.getByLabel('上下文窗口 1')
+    expect(await contextWindow.inputValue()).toBe('32768')
     const snapshot = await captureStableAria(page, '[role="dialog"]', scaffold.workspaceCwd)
     await compareOrRefreshGolden(DECLARED_EDIT_EXPECTED, snapshot, MODE)
 

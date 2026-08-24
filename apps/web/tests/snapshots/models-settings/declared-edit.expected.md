@@ -55,8 +55,15 @@
             - text: acme-large
           - textbox "显示名称 1":
             - /placeholder: 显示名称
-          - button "容量 1"
+          - button "容量 1" [expanded]
           - button "删除模型 1"
+          - text: 上下文窗口
+          - textbox "上下文窗口 1":
+            - /placeholder: 256K
+            - text: "32768"
+          - text: 最大输出 token
+          - textbox "最大输出 token 1":
+            - /placeholder: 32K
           - button "添加模型"
       - button "取消"
       - button "保存"

@@ -164,9 +164,15 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const [failure, setFailure] = useState<string | undefined>(undefined)
   const [candidates, setCandidates] = useState<readonly DiscoveredModelView[] | undefined>(undefined)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
-  // Rows carry an id and a name; capacities are the exception, so they stay
-  // folded until asked for rather than crowding every row with four inputs.
-  const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
+  // Unsized rows stay compact. A stored capacity opens its row immediately so
+  // the value is visible when the editor is reopened.
+  const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set(
+    models.flatMap((model, index) => (
+      numberOf(model, 'contextWindow') !== undefined || numberOf(model, 'maxTokens') !== undefined
+        ? [index]
+        : []
+    )),
+  ))
   // Capacities are edited as text, so a field's keystrokes are held here rather
   // than re-derived from the parsed count on every change — that would rewrite
   // `1000` to `1K` mid-word. Unreadable text is kept past blur so the refusal

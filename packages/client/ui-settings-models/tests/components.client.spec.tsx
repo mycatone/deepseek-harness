@@ -13,6 +13,7 @@ import { pathOps } from '../src/client/ProviderEditor.tsx'
 import {
   DeepSeekModelsEditor, formatCapacity, modelDrafts, parseCapacity, validateDeepSeekModels,
 } from '../src/client/DeepSeekModelsEditor.tsx'
+import { ModelListEditor } from '../src/client/ModelListEditor.tsx'
 import { apiKeyFailure } from '../src/client/apiKey.ts'
 import { SettingsDescribeMirror } from '@deepseek-ai/dsh-client-ui-settings/src/client/settings-mirror.ts'
 import { deriveKeyRef, ModelsSettingsStore } from '../src/client/store.ts'
@@ -533,6 +534,26 @@ describe('ModelsSection', () => {
     expect(parseCapacity('abc')).toBeNaN()
     expect(parseCapacity('1G')).toBeNaN()
     expect(parseCapacity('1M1')).toBeNaN()
+  })
+
+  it('opens configured pi-ai capacities while leaving unsized rows compact', () => {
+    render(<ModelListEditor
+      models={[
+        { id: 'configured', contextWindow: 32_768 },
+        { id: 'unsized' },
+      ]}
+      onChange={vi.fn()}
+      probe={{ settingsNs: 'llm-pi-ai', provider: 'ai555' }}
+      api={scriptedFace().face as never}
+      t={t}
+      disabled={false}
+    />)
+
+    expect(screen.getByLabelText<HTMLInputElement>(`${en.modelContextWindow} 1`).value)
+      .toBe('32768')
+    expect(screen.getByLabelText(`${en.modelAdvanced} 1`).getAttribute('aria-expanded')).toBe('true')
+    expect(screen.queryByLabelText(`${en.modelContextWindow} 2`)).toBeNull()
+    expect(screen.getByLabelText(`${en.modelAdvanced} 2`).getAttribute('aria-expanded')).toBe('false')
   })
 
   it('spells a stored count in the shortest form that round-trips', () => {
