@@ -566,7 +566,7 @@ interface TurnEndReasonMap {
    * flattened from any other error.
    */
   error: { kind: 'error'; error: LlmFailure }
-  /** At least one step reached its output-token ceiling, even if a plugin continued the turn. */
+  /** The final attempted step reached its output-token ceiling. */
   'max-tokens': { kind: 'max-tokens' }
   /**
    * A persistence backend closed a crash-orphaned turn on reload. The loop never
@@ -576,7 +576,7 @@ interface TurnEndReasonMap {
 }
 ```
 
-`max-tokens` mirrors the model-call `FinishReason` of the same name: any `max-tokens` step in a turn makes the whole turn end `max-tokens` rather than `completed` (the cut-short fact wins over a later continuation), so a consumer can tell a clean stop from a truncated one. Cancellation and errors remain distinct outcomes. `interrupted` is the one reason no loop emits—it is synthesized by crash recovery (see [persistence.md](persistence.md)). The map is merge-extensible.
+`max-tokens` mirrors the model-call `FinishReason` of the same name when it is the final attempted step. A plugin may steer a continuation from `agent/turn-stopping`; a later completed step makes the turn `completed`, while an unresolved final truncation remains distinguishable from a clean stop. Cancellation and errors remain distinct outcomes. `interrupted` is the one reason no loop emits—it is synthesized by crash recovery (see [persistence.md](persistence.md)). The map is merge-extensible.
 
 ## Execution enclosure and standalone events
 

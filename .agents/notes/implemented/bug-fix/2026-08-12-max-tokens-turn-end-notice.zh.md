@@ -10,7 +10,7 @@ agent loop 已把 `max-tokens` 记录为独立的 `turn/end` 原因，但没有�
 
 ## Decision
 
-新增 `turn-max-tokens` 会话节点 Definition，匹配 `reason.kind === 'max-tokens'` 的 `turn/end`，在该轮位置生成一条持久聊天行：warning 状态的 StateDot、本地化标题，以及说明已截断输出会保留、发送“继续”可在新一轮接着输出的指引。节点只从持久会话事件推导，因此刷新、恢复和历史回放会重建出完全一致的结果。提示不显示任何 token 数字：事件本身不携带数量，提示也不得伪造提供方未报告的预算数据。
+新增 `turn-max-tokens` 会话节点 Definition，匹配 `reason.kind === 'max-tokens'` 的 `turn/end`，在该轮位置生成一条持久聊天行：warning 状态的 StateDot、本地化标题，以及说明已截断输出会保留、发送“继续”可在新一轮接着输出的指引。有界的[自动续写策略](../feature/2026-08-25-bounded-max-token-continuation.zh.md)会在同轮续写成功时阻止生成该事件；此提示保留为该策略耗尽次数后的终态呈现。节点只从持久会话事件推导，因此刷新、恢复和历史回放会重建出完全一致的结果。提示不显示任何 token 数字：事件本身不携带数量，提示也不得伪造提供方未报告的预算数据。
 
 渲染器与其他聊天行一样注册在按 kind 分发的 `conversation.chat.node` 槽位下，legacy chat-snapshot 投影也包含该节点。fixture 历史新增了一个 max-tokens 样本轮（72，图片轮和 todo 轮顺移为 73、74），并有一条 assembled keyless snapshot 钉住圆点状态、标题和指引文案，把 max-tokens 路由回错误样式或再次静默的回归都会改动 golden。
 
@@ -24,4 +24,4 @@ agent loop 已把 `max-tokens` 记录为独立的 `turn/end` 原因，但没有�
 
 ## Consequences
 
-max-tokens 结束在实时流、刷新和回放中都可见、已本地化，并与错误和正常完成明确区分。fixture 重编号需要更新两处依赖 snapshot 的注释，之后钉 fixture 轮次号的改动要按新布局计数。Web 聊天流之外的表面（ACP 和 SDK 消费方）仍按各自的呈现映射该原因，本次不变。
+未解决的 max-tokens 结束在实时流、刷新和回放中都可见、已本地化，并与错误和正常完成明确区分。fixture 重编号需要更新两处依赖 snapshot 的注释，之后钉 fixture 轮次号的改动要按新布局计数。Web 聊天流之外的表面（ACP 和 SDK 消费方）仍按各自的呈现映射该原因，本次不变。

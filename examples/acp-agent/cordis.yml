@@ -160,6 +160,10 @@
 - id: repeat-tool-reminder
   name: '@deepseek-ai/dsh-repeat-tool-reminder'
 
+# Output-limit truncation receives up to three same-turn continuation steps.
+- id: max-token-continuation
+  name: '@deepseek-ai/dsh-max-token-continuation'
+
 # The filesystem stack rides the SAME sandbox policy as bash: dsh-fs-sandbox
 # replaces dsh-fs-local behind ctx.fs and fences write/edit by the effective
 # mode (read-only denies, workspace-write contains to the workspace + temp

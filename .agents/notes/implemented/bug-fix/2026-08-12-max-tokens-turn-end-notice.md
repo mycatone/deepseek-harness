@@ -10,7 +10,7 @@ The agent loop records `max-tokens` as its own `turn/end` reason, but no user su
 
 ## Decision
 
-A `turn-max-tokens` conversation node Definition matches `turn/end` with `reason.kind === 'max-tokens'` and materializes a persistent chat row at the turn position: a warning StateDot, a localized title, and guidance that the truncated output is preserved and sending "continue" resumes in a new turn. The node derives from the durable session event alone, so refresh, restore, and history replay rebuild it identically. It shows no token numbers: the event carries none, and the notice must not fabricate budget data the provider did not report.
+A `turn-max-tokens` conversation node Definition matches `turn/end` with `reason.kind === 'max-tokens'` and materializes a persistent chat row at the turn position: a warning StateDot, a localized title, and guidance that the truncated output is preserved and sending "continue" resumes in a new turn. The bounded [automatic continuation policy](../feature/2026-08-25-bounded-max-token-continuation.md) prevents this event when a same-turn continuation succeeds; the notice remains the terminal presentation after that policy exhausts its cap. The node derives from the durable session event alone, so refresh, restore, and history replay rebuild it identically. It shows no token numbers: the event carries none, and the notice must not fabricate budget data the provider did not report.
 
 The renderer registers under the keyed `conversation.chat.node` seat like every chat row, and the legacy chat-snapshot contribution includes the node. The fixture history gained a max-tokens sample turn (72; the image and todo turns shifted to 73 and 74), and an assembled keyless snapshot pins the dot state, title, and hint, so a regression that routes max-tokens through the error presentation or silences it again changes a golden.
 
@@ -24,4 +24,4 @@ The renderer registers under the keyed `conversation.chat.node` seat like every 
 
 ## Consequences
 
-Max-tokens turn ends are visible, localized, and distinct from both errors and normal completion across live streaming, reload, and replay. The fixture renumbering cost two comment updates in dependent snapshots, and anything pinning fixture turn numbers must count from the new layout. Surfaces other than the Web chat flow (ACP and SDK consumers) keep mapping the reason through their own presentations and are unchanged.
+Unresolved max-tokens turn ends are visible, localized, and distinct from both errors and normal completion across live streaming, reload, and replay. The fixture renumbering cost two comment updates in dependent snapshots, and anything pinning fixture turn numbers must count from the new layout. Surfaces other than the Web chat flow (ACP and SDK consumers) keep mapping the reason through their own presentations and are unchanged.

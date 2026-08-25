@@ -5,11 +5,14 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
-import { contentHasImage, createUserMessage, BlockAssembler, LlmError } from '@deepseek-ai/dsh-llm'
+import {
+  contentHasImage, createUserMessage, BlockAssembler, LlmError, resolveRetryDelay, waitForRetryDelay,
+} from '@deepseek-ai/dsh-llm'
 import type {
-  ContentBlock, FinishReason, GenerateOptions, Message, TokenUsage, ToolSchema,
+  ContentBlock, FinishReason, GenerateOptions, Message, ResolvedRetryPolicy, TokenUsage, ToolSchema,
 } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
+import type { TokenMeter } from '@deepseek-ai/dsh-token-meter'
 
 interface SummaryConfig {
   readonly summarizationProvider: string
@@ -64,6 +67,68 @@ const COMPACTION_INSTRUCTION = [
   '- Output only the checkpoint text: do not call any tool or take any other action.',
   `- If the conversation already contains a ${SUMMARY_OPEN_TAG} block, it is a PRIOR checkpoint. Do not copy it forward verbatim: preserve still-true facts, drop stale ones, and merge newer information into a single consolidated summary under the same structure.`,
 ].join('\n')
+
+/** Build the model-visible instruction appended to every local summary request. */
+function compactionInstructionMessage(): Message {
+  return createUserMessage({
+    content: [{ type: 'text', text: COMPACTION_INSTRUCTION }],
+    source: { kind: 'plugin', plugin: 'dsh-compaction-basic' },
+  })
+}
+
+/**
+ * Estimate the fixed instruction so range selection can keep the complete
+ * summarization request within the routed model's context window.
+ * @param meter - canonical message estimator used for conversation pressure.
+ * @returns estimated tokens occupied by the trailing instruction.
+ */
+export function estimateCompactionInstruction(
+  meter: Pick<TokenMeter, 'estimateMessage'>,
+): number {
+  return meter.estimateMessage(compactionInstructionMessage())
+}
+
+/** Whether the provider's policy admits another failed auxiliary request. */
+function mayRetry(
+  finish: FinishReason,
+  policy: ResolvedRetryPolicy,
+  retries: number,
+  signal: AbortSignal | undefined,
+): finish is Extract<FinishReason, { kind: 'error' | 'aborted' }> {
+  if (signal?.aborted === true || (finish.kind !== 'error' && finish.kind !== 'aborted')) return false
+  if (policy.mode === 'always') return true
+  return retries < policy.maxRetries && policy.retryableCodes.includes(finish.failure.code)
+}
+
+/** Run one summary stream, retrying only failures admitted by the routed provider policy. */
+async function streamSummary(
+  ctx: Context,
+  options: GenerateOptions,
+  signal: AbortSignal | undefined,
+): Promise<BlockAssembler> {
+  let retries = 0
+  while (true) {
+    const assembler = new BlockAssembler()
+    for await (const chunk of ctx.llm.stream(options)) assembler.push(chunk)
+    const finish = assembler.finish
+    const error = finishError(finish)
+    if (error === undefined) return assembler
+
+    const policy = ctx.llm.providerRetryPolicy(options.provider)
+    if (!mayRetry(finish, policy, retries, signal)) throw error
+    retries += 1
+    const delayMs = resolveRetryDelay(policy, finish.failure, retries)
+    if (delayMs === undefined) throw error
+    ctx.logger.warn(
+      'compaction summary request to provider "%s" failed with %s; retrying attempt %d after %dms',
+      options.provider,
+      finish.failure.code,
+      retries,
+      delayMs,
+    )
+    if (!await waitForRetryDelay(delayMs, signal)) throw error
+  }
+}
 
 /** Framing that makes the replacement user message established context. */
 const CHECKPOINT_PREAMBLE =
@@ -142,13 +207,9 @@ export async function summarizeWithLlm(
     )
   }
 
-  const assembler = new BlockAssembler()
   const messages: Message[] = [
     ...input.messages,
-    createUserMessage({
-      content: [{ type: 'text', text: COMPACTION_INSTRUCTION }],
-      source: { kind: 'plugin', plugin: 'dsh-compaction-basic' },
-    }),
+    compactionInstructionMessage(),
   ]
   const options: GenerateOptions = {
     provider: target.provider,
@@ -161,9 +222,7 @@ export async function summarizeWithLlm(
     purpose: 'compaction',
     ...signal === undefined ? {} : { signal },
   }
-  for await (const chunk of ctx.llm.stream(options)) assembler.push(chunk)
-  const error = finishError(assembler.finish)
-  if (error !== undefined) throw error
+  const assembler = await streamSummary(ctx, options, signal)
 
   const rawOutput = assembler.blocks()
   const summary = summaryText(rawOutput)

@@ -393,6 +393,13 @@
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
+    # Resume output-limit truncations in the same turn while retaining a hard
+    # ceiling on provider calls that repeatedly exhaust their output budget.
+    - id: max-token-continuation
+      name: '@deepseek-ai/dsh-max-token-continuation'
+      config:
+        maxContinuations: 3
+
     # Every mode enables the stable model-facing web_search tool. DeepSeek search
     # resolves the same DEEPSEEK_API_KEY credential the Models page manages for
     # chat, at each search; its Messages endpoint is separate from the

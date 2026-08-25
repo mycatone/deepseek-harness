@@ -980,7 +980,7 @@ describe('agent loop', () => {
     expect(turnEnd!.data.reason).toEqual({ kind: 'max-tokens' })
   })
 
-  it('a max-tokens step earlier in a turn still surfaces as max-tokens after a later completed step', async () => {
+  it('a completed continuation replaces an earlier max-tokens turn outcome', async () => {
     // Step 1 is cut off (max-tokens, no tool calls → would stop by default), so continuation
     // must be FORCED to reach step 2 which finishes normally (stop).
     const adapter = new MockAdapter([
@@ -1028,9 +1028,7 @@ describe('agent loop', () => {
         source: { kind: 'plugin', plugin: 'max-tokens-test' },
       },
     ])
-    // A max-token step is sticky: the later completed step must not
-    // downgrade the turn outcome.
-    expect(reasons).toEqual([{ kind: 'max-tokens' }])
+    expect(reasons).toEqual([{ kind: 'completed' }])
   })
 
   it('a completed step after no max-tokens keeps the turn completed (max-tokens does not leak across turns)', async () => {

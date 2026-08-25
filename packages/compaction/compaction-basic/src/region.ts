@@ -93,12 +93,14 @@ interface TransactionFailure {
  * @param session - session supplying authoritative current surface positions.
  * @param measurement - unified pressure and surface measurement from the conversation meter.
  * @param retainTokens - minimum recent tail budget retained verbatim.
+ * @param maxCompactTokens - maximum priced head content the summarizer may receive.
  * @returns the inclusive positional seq range to compact, or `null`.
  */
 export function selectCompactableRange(
   session: Session,
   measurement: TokenMeasurement,
   retainTokens: number,
+  maxCompactTokens = Number.POSITIVE_INFINITY,
 ): { start: number; end: number } | null {
   const pricedNodes = measurement.nodes
   if (pricedNodes.length === 0) return null
@@ -126,10 +128,21 @@ export function selectCompactableRange(
   }
   if (keepFromIdx === 0) return null
 
+  let compactTokens = 0
+  let cutoffIdx = -1
+  for (let index = 0; index < keepFromIdx; index += 1) {
+    // oxlint-disable-next-line typescript/no-non-null-assertion
+    compactTokens += pricedNodes[index]!.tokens
+    if (compactTokens > maxCompactTokens) break
+    // oxlint-disable-next-line typescript/no-non-null-assertion
+    if (toolPairingBalancedAfter(session, surfaceNodes[index]!)) cutoffIdx = index
+  }
+  if (cutoffIdx === -1) return null
+
   // oxlint-disable-next-line typescript/no-non-null-assertion
   const first = surfaceNodes[0]!
   // oxlint-disable-next-line typescript/no-non-null-assertion
-  const cutoff = surfaceNodes[keepFromIdx - 1]!
+  const cutoff = surfaceNodes[cutoffIdx]!
   return { start: first, end: cutoff }
 }
 

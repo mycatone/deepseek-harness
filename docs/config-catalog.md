@@ -502,7 +502,7 @@ export interface CompactionPolicyConfig {
   summarizationModel?: string
   /** Provider generation cap for summarization. Defaults to `8192`. */
   maxTokens?: number
-  /** Extra attempts after the first compaction when pressure remains above threshold. Defaults to `1`. */
+  /** Extra attempts after the first compaction when pressure remains above threshold. Defaults to `8`. */
   compactionRetries?: number
   /** Maximum retries after canonical context overflow; `0` disables recovery. Defaults to `1`. */
   maxOverflowRetries?: number
@@ -987,7 +987,7 @@ export interface DeepSeekCatalogModel {
 
 Depends on: [`ModelModality`](../packages/llm/llm/src/index.ts) · [`RetryPolicyConfig`](../packages/llm/llm/src/index.ts)
 
-Source: [`packages/llm/llm-deepseek/src/index.ts:106`](../packages/llm/llm-deepseek/src/index.ts)
+Source: [`packages/llm/llm-deepseek/src/index.ts:107`](../packages/llm/llm-deepseek/src/index.ts)
 
 <a id="deepseek-aidsh-llm-pi-ai"></a>
 
@@ -1322,7 +1322,7 @@ Requires: `agents`
 export type Config = Readonly<Record<string, never>>
 ```
 
-Source: [`packages/llm/llm-retry/src/index.ts:24`](../packages/llm/llm-retry/src/index.ts)
+Source: [`packages/llm/llm-retry/src/index.ts:25`](../packages/llm/llm-retry/src/index.ts)
 
 <a id="deepseek-aidsh-lsp-stdio"></a>
 
@@ -1365,6 +1365,22 @@ export interface LspLocalServerConfig {
 ```
 
 Source: [`packages/lsp/lsp-stdio/src/index.ts:82`](../packages/lsp/lsp-stdio/src/index.ts)
+
+<a id="deepseek-aidsh-max-token-continuation"></a>
+
+## `@deepseek-ai/dsh-max-token-continuation`
+
+```ts config-catalog
+/** Plugin configuration. */
+export interface Config {
+  /** Maximum automatic continuations in one turn (default 3; 0 disables continuation). */
+  maxContinuations?: number
+  /** Model-facing instruction used for each automatic continuation. */
+  prompt?: string
+}
+```
+
+Source: [`packages/guard/max-token-continuation/src/index.ts:19`](../packages/guard/max-token-continuation/src/index.ts)
 
 <a id="deepseek-aidsh-mcp-client"></a>
 

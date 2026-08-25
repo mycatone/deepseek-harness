@@ -78,6 +78,52 @@ export interface ResolvedAlwaysRetryPolicy extends ResolvedRetryBackoff {
 /** Immutable provider policy captured when its adapter route is registered. */
 export type ResolvedRetryPolicy = ResolvedNormalRetryPolicy | ResolvedAlwaysRetryPolicy
 
+/**
+ * Resolve one provider-request retry delay from the routed policy.
+ * @param policy - resolved provider retry policy.
+ * @param failure - failure metadata that may carry a provider-directed delay.
+ * @param retry - one-based retry attempt number.
+ * @param random - random source used for symmetric jitter.
+ * @returns delay in milliseconds, or undefined when a bounded policy rejects an excessive provider delay.
+ */
+export function resolveRetryDelay(
+  policy: ResolvedRetryPolicy,
+  failure: { readonly providerRetryAfterMs?: number },
+  retry: number,
+  random: () => number = Math.random,
+): number | undefined {
+  const providerDelay = failure.providerRetryAfterMs
+  if (providerDelay !== undefined && Number.isFinite(providerDelay) && providerDelay > 0) {
+    if (providerDelay <= policy.maxDelayMs) return providerDelay
+    if (policy.mode === 'normal') return undefined
+  }
+  const exponent = Math.min(retry - 1, 1024)
+  const exponential = Math.min(policy.initialDelayMs * 2 ** exponent, policy.maxDelayMs)
+  const jitter = 1 - policy.jitterRatio + 2 * policy.jitterRatio * random()
+  return Math.min(exponential * jitter, policy.maxDelayMs)
+}
+
+/**
+ * Wait for one retry delay unless the owning operation is cancelled.
+ * @param delayMs - resolved retry delay in milliseconds.
+ * @param signal - optional cancellation signal owned by the request or caller.
+ * @returns true after the delay, or false when cancellation wins.
+ */
+export function waitForRetryDelay(delayMs: number, signal?: AbortSignal): Promise<boolean> {
+  if (signal?.aborted === true) return Promise.resolve(false)
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => {
+      signal?.removeEventListener('abort', onAbort)
+      resolve(true)
+    }, delayMs)
+    function onAbort(): void {
+      clearTimeout(timer)
+      resolve(false)
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 const backoffSchema: z<BackoffConfig> = z.object({
   initialDelayMs: z.number().max(MAX_TIMER_DELAY_MS).default(DEFAULT_INITIAL_DELAY_MS),
   maxDelayMs: z.number().max(MAX_TIMER_DELAY_MS).default(DEFAULT_MAX_DELAY_MS),

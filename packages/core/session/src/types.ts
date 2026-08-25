@@ -164,7 +164,7 @@ export interface TurnEndReasonMap {
    * flattened from any other error.
    */
   error: { kind: 'error'; error: LlmFailure }
-  /** At least one step reached its output-token ceiling, even if a plugin continued the turn. */
+  /** The final attempted step reached its output-token ceiling. */
   'max-tokens': { kind: 'max-tokens' }
   /**
    * A persistence backend closed a crash-orphaned turn on reload. The loop never

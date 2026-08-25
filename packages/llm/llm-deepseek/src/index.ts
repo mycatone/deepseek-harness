@@ -40,6 +40,7 @@ import {
   DeepSeekAdapter,
 } from './adapter.ts'
 import type { DeepSeekCatalogModel, DeepSeekConnectionOptions } from './adapter.ts'
+import { refreshCachedModelInfo } from './dynamic-model-fetcher.ts'
 
 export {
   DEFAULT_CONTEXT_WINDOW,
@@ -464,4 +465,24 @@ export function apply(ctx: Context, config: Config): void {
     },
     onChange: ensureRegistrationFacts,
   })
+
+  void initializeModelInfo(ctx, options())
+}
+
+/** Refresh optional startup model metadata when the configured key is available in the launch environment. */
+async function initializeModelInfo(ctx: Context, options: DeepSeekConnectionOptions): Promise<void> {
+  const apiKey = launchEnvironmentOf(ctx).get(options.apiKeyEnv)?.value
+  if (apiKey === undefined || apiKey.length === 0) {
+    ctx.logger.warn(
+      'llm-deepseek: skipping startup model discovery because %s is absent from the launch environment',
+      options.apiKeyEnv,
+    )
+    return
+  }
+  try {
+    const models = await refreshCachedModelInfo(options.baseURL, apiKey)
+    ctx.logger.info('llm-deepseek: cached %d model(s) from the configured endpoint', models.length)
+  } catch (error) {
+    ctx.logger.warn('llm-deepseek: startup model discovery failed; static model config remains active: %o', error)
+  }
 }

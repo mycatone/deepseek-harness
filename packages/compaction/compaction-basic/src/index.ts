@@ -11,7 +11,7 @@ import type { CompactionResult, CompactionTrigger } from '@deepseek-ai/dsh-compa
 import type { TokenMeter } from '@deepseek-ai/dsh-token-meter'
 import type { Session } from '@deepseek-ai/dsh-session'
 import { CONTEXT_WINDOW_EXCEEDED_CODE, assertNever } from '@deepseek-ai/dsh-llm'
-import type { LlmCallConfig } from '@deepseek-ai/dsh-llm'
+import type { LlmCallConfig, LlmResolvedModelInfo } from '@deepseek-ai/dsh-llm'
 import type { Agent, PreStepDecision } from '@deepseek-ai/dsh-agent'
 import type { CommandId } from '@deepseek-ai/dsh-commands/brand'
 // Type-only: makes the optional sibling service available to `ctx.get()`.
@@ -27,7 +27,7 @@ import {
   compactSurfaceRegion,
   selectCompactableRange,
 } from './region.ts'
-import { summarizeWithLlm } from './summarizer.ts'
+import { estimateCompactionInstruction, summarizeWithLlm } from './summarizer.ts'
 import type { SummarizationInput, SummaryResult } from './summarizer.ts'
 import type {
   BasicCompactionConfig,
@@ -68,6 +68,16 @@ function conversationTarget(
   if (agent.options.provider === undefined || agent.options.provider.length === 0
     || agent.options.model === undefined || agent.options.model.length === 0) return undefined
   return { provider: agent.options.provider, model: agent.options.model }
+}
+
+/** Maximum head content that keeps the envelope and instruction below the safe threshold. */
+function summaryRangeBudget(
+  measurement: ReturnType<TokenMeter['measure']>,
+  spec: ReturnType<typeof resolveCompactSpec>,
+  meter: TokenMeter,
+): number {
+  const envelopeTokens = Math.max(0, measurement.totalTokens - measurement.surfaceTokens)
+  return spec.thresholdTokens - envelopeTokens - estimateCompactionInstruction(meter)
 }
 
 const thresholdRatioSchema = z.number()
@@ -203,7 +213,6 @@ export class BasicCompactionEngine extends CompactionEngine {
             `context-overflow compaction failed after durable surface progress: ${message}; `
             + 'retrying from the replacement surface',
           )
-          this.overflowRetries.set(agent, retries + 1)
           return { kind: 'retry' }
         }
         ctx.logger.warn(
@@ -248,8 +257,8 @@ export class BasicCompactionEngine extends CompactionEngine {
   /**
    * Compact for replayed step-boundary pressure or one provider-confirmed context
    * overflow. Both triggers price the latest durable routed request envelope;
-   * overflow bypasses the normal threshold and retained-tail policy so it can
-   * force one useful balanced reduction.
+   * overflow bypasses the normal retained-tail policy and segments a request
+   * that is larger than the routed context capacity.
    * @param agent - agent whose latest durable routed request is measured.
    * @param trigger - normal step-boundary pressure or context-overflow recovery.
    * @param signal - live turn cancellation signal forwarded to summarization.
@@ -285,9 +294,41 @@ export class BasicCompactionEngine extends CompactionEngine {
         prune.pruneSession(agent.session)
         measurement = meter.measure(agent.session)
       }
-      const range = selectCompactableRange(agent.session, measurement, 0)
-      if (range === null) return null
-      return this.compactRegion(range.start, range.end, agent, signal)
+      let context: LlmResolvedModelInfo['context']
+      try {
+        context = (await this.ctx.llm.resolveModelInfo(
+          target.provider, target.model, signal,
+        )).context
+      } catch {
+        signal.throwIfAborted()
+        // Overflow is provider-confirmed; catalog lookup failure retains the metadata-free fallback.
+        context = undefined
+      }
+      if (context === undefined) {
+        const range = selectCompactableRange(agent.session, measurement, 0)
+        if (range === null) return null
+        return this.compactRegion(range.start, range.end, agent, signal)
+      }
+      const spec = resolveCompactSpec(policy, context.contextWindow)
+      assertNoActiveCompaction(agent.session, 'context-overflow compaction')
+      let result: CompactionResult | null = null
+      for (let attempt = 0; attempt <= spec.compactionRetries; attempt += 1) {
+        const budget = summaryRangeBudget(measurement, spec, meter)
+        if (budget <= 0) {
+          const range = selectCompactableRange(agent.session, measurement, 0)
+          if (range === null) return result
+          return this.compactRegion(range.start, range.end, agent, signal)
+        }
+        const range = selectCompactableRange(agent.session, measurement, 0, budget)
+        if (range === null) return result
+        result = await this.compactRegion(range.start, range.end, agent, signal)
+        measurement = meter.measure(agent.session)
+        if (measurement.totalTokens < spec.thresholdTokens) return result
+      }
+      throw new Error(
+        `context-overflow compaction still above threshold after ${spec.compactionRetries + 1} compaction attempts `
+        + `(${measurement.totalTokens} estimated tokens >= threshold ${spec.thresholdTokens})`,
+      )
     }
 
     const context = (await this.ctx.llm.resolveModelInfo(target.provider, target.model, signal)).context

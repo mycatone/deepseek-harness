@@ -418,8 +418,9 @@ const SCENARIOS: Scenario[] = [
   // a deterministic mid-tool-call output-limit truncation. Turn 1's script ends
   // at `max-tokens` with an unfinished tool call and adapter replay metadata for
   // both blocks; the durable assistant/message pins assembly dropping the tool
-  // call AND pruning its per-block replay entry in the same decision, and turn 2
-  // proves the session continues past the truncated step.
+  // call AND pruning its per-block replay entry in the same decision. The base
+  // continuation policy then injects a logged notice and completes step 2 in
+  // the same turn without a second user prompt.
   { name: 'max-tokens-continue', hasModelTurn: true, recorded: false },
   // Keyless, authored (like error-finish/cancel): deterministically forcing a
   // LIVE model to repeat one call three times is not a stable recording, so

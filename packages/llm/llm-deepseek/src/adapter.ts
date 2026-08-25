@@ -38,6 +38,7 @@ import type { DeepSeekFileId } from './file-id.ts'
 import { parseSse } from './sse.ts'
 import { translate } from './translate.ts'
 import type { WireError, WireRequest } from './types.ts'
+import { getCachedModelInfo } from './dynamic-model-fetcher.ts'
 
 /** One optional model entry advertised by the direct-fetch adapter. */
 export interface DeepSeekCatalogModel {
@@ -368,7 +369,7 @@ export class DeepSeekAdapter extends LlmAdapter {
   }
 
   override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
-    return Promise.resolve(this.config.options().models.map(model => modelInfo(provider, model)))
+    return Promise.resolve(this.modelsFor(this.config.options()).map(model => modelInfo(provider, model)))
   }
 
   override resolveModel(
@@ -384,9 +385,8 @@ export class DeepSeekAdapter extends LlmAdapter {
     provider: string,
     model: string,
   ): LlmResolvedModelInfo {
-    const configured = connection.models.find(entry => entry.id === model)
-    const contextWindow = configured?.contextWindow
-      ?? connection.defaultContextWindow
+    const configured = this.modelsFor(connection).find(entry => entry.id === model)
+    const contextWindow = configured?.contextWindow ?? connection.defaultContextWindow
     return {
       // An uncatalogued endpoint is safely treated as text-only. Declaring an
       // unverified image capability would let the host persist input that the
@@ -416,6 +416,14 @@ export class DeepSeekAdapter extends LlmAdapter {
           },
         },
     }
+  }
+
+  private modelsFor(connection: DeepSeekConnectionOptions): readonly DeepSeekCatalogModel[] {
+    const models = new Map(connection.models.map(model => [model.id, model]))
+    for (const model of getCachedModelInfo()) {
+      if (!models.has(model.id)) models.set(model.id, model)
+    }
+    return [...models.values()]
   }
 
   override prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
