@@ -5,11 +5,18 @@
  */
 
 import type { Context } from '@deepseek-ai/cordis'
+<<<<<<< HEAD
 import {
   contentHasImage, createUserMessage, BlockAssembler, LlmError, resolveRetryDelay, waitForRetryDelay,
 } from '@deepseek-ai/dsh-llm'
 import type {
   ContentBlock, FinishReason, GenerateOptions, Message, ResolvedRetryPolicy, TokenUsage, ToolSchema,
+=======
+import { contentHasImage, BlockAssembler, LlmError } from '@deepseek-ai/dsh-llm'
+import { deepFreeze } from '@deepseek-ai/dsh-util-values'
+import type {
+  ContentBlock, FinishReason, GenerateOptions, Message, RequestMessage, TokenUsage, ToolSchema,
+>>>>>>> upstream/master
 } from '@deepseek-ai/dsh-llm'
 import type { Agent } from '@deepseek-ai/dsh-agent'
 import type { TokenMeter } from '@deepseek-ai/dsh-token-meter'
@@ -141,11 +148,9 @@ const CHECKPOINT_PREAMBLE =
  * compaction instruction is then the only novel input.
  */
 export interface SummarizationInput {
-  /** The conversation's own system prompt, reused for prefix-cache alignment; absent for a system-less request. */
-  readonly system?: string
   /** The conversation's tool schemas, reused for prefix-cache alignment; absent when the request carried none. */
   readonly tools?: readonly ToolSchema[]
-  /** The shadowed region, in surface order, that precedes the compaction instruction. */
+  /** The derived system head, when present, followed by the shadowed region in surface order. */
   readonly messages: readonly Message[]
 }
 
@@ -207,15 +212,25 @@ export async function summarizeWithLlm(
     )
   }
 
+<<<<<<< HEAD
   const messages: Message[] = [
     ...input.messages,
     compactionInstructionMessage(),
+=======
+  const assembler = new BlockAssembler()
+  const messages: RequestMessage[] = [
+    ...input.messages,
+    deepFreeze({
+      role: 'user',
+      content: [{ type: 'text', text: COMPACTION_INSTRUCTION }],
+    }),
+>>>>>>> upstream/master
   ]
   const options: GenerateOptions = {
     provider: target.provider,
     model: target.model,
     messages,
-    ...input.system === undefined ? {} : { system: input.system },
+    toolHistory: agent.session.toolHistory(),
     ...input.tools === undefined ? {} : { tools: [...input.tools] },
     maxTokens: config.maxTokens,
     sessionId: agent.session.id,
@@ -258,9 +273,7 @@ function finishError(finish: FinishReason): Error | undefined {
   switch (finish.kind) {
     case 'error':
     case 'aborted': {
-      const error = new Error(finish.failure.message) as Error & { code?: string }
-      error.code = finish.failure.code
-      return error
+      return new LlmError(finish.failure.message, finish.failure.code, finish.failure)
     }
     case 'max-tokens': {
       const error = new Error('summarization truncated at the token cap (incomplete checkpoint)') as Error & { code?: string }
