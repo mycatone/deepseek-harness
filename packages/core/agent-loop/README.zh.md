@@ -74,13 +74,7 @@ const handle = await ctx.agents.create({
 
 每个步骤都会发送会话的派生历史——最新的非空 `system/message` 节点是有效提示词，渲染提示词为空时则没有系统消息——及其可见工具 schema；模型的工具调用经过受守卫的工具流水线，每个被接纳的事实都会在下一步据此派生之前追加到会话日志。并行安全调用最多可重叠 `maxParallelToolCalls` 个；独占调用单独运行并构成排序屏障。取消是协作式的：`agent.cancel()` 中止当前活动，并在未设置 `keepInbox` 时清除待处理工作；被取消的流会终结已送达用户的文本。
 
-<<<<<<< HEAD
-最后一次尝试的步骤决定该轮以 `completed` 还是 `max-tokens` 结束。策略监听器可以从 `agent/turn-stopping` 引导另一个步骤；如果续写成功完成，整轮以 `completed` 结束，最后一步仍被截断时则保留 `max-tokens`。base bundle（基础组合包）安装有界的 [`dsh-max-token-continuation`](../../guard/max-token-continuation/README.zh.md) 策略。
-
-在 `agent/request` 返回提供方／模型调用配置后，循环会调用 `ctx.llm.prepareCall()`，在活跃轮次信号的控制下校验由适配器负责的字段，并填入配置的推理（reasoning）强度和输出 token 默认值。准备完成的调用会在这次异步解析、`request/header` 日志记录和最终分派期间保留同一项确切的适配器注册，因此 HMR（热模块替换）不会把某个适配器的能力解析结果与另一适配器的请求混用。请求 header 会记录生效配置以及哪些字段来自适配器。下一次 waterfall（瀑布式事件）前，循环会从提议中移除这些带标记字段，使当前精确路由重新填入自身默认值；未带标记的显式设置会跨步骤和路由变化保留。没有已注册适配器的路由会保留原定配置，使 `llm/stream` 监听器可以接管并短路该请求；最终分派仍会以 `NO_ADAPTER` 拒绝未得到处理的路由。新循环实例在恢复时会遵循同一套适配器默认值标记规则。
-=======
 -----
->>>>>>> upstream/master
 
 <a id="understand-the-implementation"></a>
 ## 理解实现

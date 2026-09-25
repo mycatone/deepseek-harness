@@ -112,19 +112,13 @@ function systemHead(session: Session, headSeq: SessionSeq): SessionEvent<'system
  * @param session - session supplying authoritative current surface positions.
  * @param measurement - unified pressure and surface measurement from the conversation meter.
  * @param retainTokens - minimum recent tail budget retained verbatim.
- * @param maxCompactTokens - maximum priced head content the summarizer may receive.
  * @returns the inclusive positional seq range to compact, or `null`.
  */
 export function selectCompactableRange(
   session: Session,
   measurement: TokenMeasurement,
   retainTokens: number,
-<<<<<<< HEAD
-  maxCompactTokens = Number.POSITIVE_INFINITY,
-): { start: number; end: number } | null {
-=======
 ): { start: SessionSeq; end: SessionSeq } | null {
->>>>>>> upstream/master
   const pricedNodes = measurement.nodes
   if (pricedNodes.length === 0) return null
 
@@ -153,21 +147,10 @@ export function selectCompactableRange(
   }
   if (keepFromIdx <= firstIdx) return null
 
-  let compactTokens = 0
-  let cutoffIdx = -1
-  for (let index = 0; index < keepFromIdx; index += 1) {
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    compactTokens += pricedNodes[index]!.tokens
-    if (compactTokens > maxCompactTokens) break
-    // oxlint-disable-next-line typescript/no-non-null-assertion
-    if (toolPairingBalancedAfter(session, surfaceNodes[index]!)) cutoffIdx = index
-  }
-  if (cutoffIdx === -1) return null
-
   // oxlint-disable-next-line typescript/no-non-null-assertion
   const first = surfaceNodes[firstIdx]!
   // oxlint-disable-next-line typescript/no-non-null-assertion
-  const cutoff = surfaceNodes[cutoffIdx]!
+  const cutoff = surfaceNodes[keepFromIdx - 1]!
   return { start: first, end: cutoff }
 }
 

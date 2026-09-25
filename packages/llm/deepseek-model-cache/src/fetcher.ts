@@ -1,11 +1,11 @@
 /**
  * Dynamic model metadata discovery for OpenAI-compatible DeepSeek routes.
  *
- * @module @deepseek-ai/dsh-llm-deepseek/dynamic-model-fetcher
+ * @module @deepseek-ai/dsh-deepseek-model-cache/fetcher
  */
 
 import type { ModelModality } from '@deepseek-ai/dsh-llm'
-import type { DeepSeekCatalogModel } from './adapter.ts'
+import type { DeepSeekCatalogModel } from '@deepseek-ai/dsh-llm-deepseek'
 
 /** Model information advertised by an OpenAI-compatible `/models` endpoint. */
 export interface DeepSeekModelInfo {
@@ -95,7 +95,6 @@ function toCatalogModel(model: DeepSeekModelInfo): DeepSeekCatalogModel {
     ...model.inputModalities === undefined ? {} : { inputModalities: model.inputModalities },
     ...model.imagePixelBudget === undefined ? {} : { imagePixelBudget: model.imagePixelBudget },
     ...model.imageMaxBytes === undefined ? {} : { imageMaxBytes: model.imageMaxBytes },
-    ...model.imageDetail === undefined ? {} : { imageDetail: model.imageDetail },
   }
 }
 

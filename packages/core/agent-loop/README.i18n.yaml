@@ -2,10 +2,6 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/core/agent-loop/README.md
-<<<<<<< packages/core/agent-loop/README.i18n.yaml:current
-README.md: be4aed8e373da25ac179ad249ca2651328d24eea
-README.zh.md: cf6523ccdaf0c4f9bf8faaa6f57c42c13851efd9
-=======
 /:
   en: 5d57c28077cb670a
   zh: 8113ea0248d66a17
@@ -102,4 +98,3 @@ README.zh.md: cf6523ccdaf0c4f9bf8faaa6f57c42c13851efd9
 /deepseek-ai-dsh-agent-loop/known-limitations-and-deferred-work/dev-note:
   en: e67f633dc6fe7773
   zh: 3bb0c20c93f16f98
->>>>>>> packages/core/agent-loop/README.i18n.yaml:other

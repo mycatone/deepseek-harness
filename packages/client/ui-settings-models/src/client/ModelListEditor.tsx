@@ -169,20 +169,8 @@ export function ModelListEditor(props: ModelListEditorProps): ReactNode {
   const inputDefaults = useMemo(() => new Map(catalog?.map(model => [model.id, model.inputModalities])), [catalog])
   const [candidates, setCandidates] = useState<readonly LlmDiscoveredModel[] | undefined>(undefined)
   const [picked, setPicked] = useState<ReadonlySet<string>>(new Set())
-<<<<<<< HEAD
-  // Unsized rows stay compact. A stored capacity opens its row immediately so
-  // the value is visible when the editor is reopened.
-  const [expanded, setExpanded] = useState<ReadonlySet<number>>(() => new Set(
-    models.flatMap((model, index) => (
-      numberOf(model, 'contextWindow') !== undefined || numberOf(model, 'maxTokens') !== undefined
-        ? [index]
-        : []
-    )),
-  ))
-=======
   const [candidateQuery, setCandidateQuery] = useState('')
   const [expanded, setExpanded] = useState<ReadonlySet<number>>(new Set())
->>>>>>> upstream/master
   // Capacities are edited as text, so a field's keystrokes are held here rather
   // than re-derived from the parsed count on every change — that would rewrite
   // `1000` to `1K` mid-word. Unreadable text is kept past blur so the refusal

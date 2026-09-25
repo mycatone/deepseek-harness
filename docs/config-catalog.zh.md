@@ -686,7 +686,7 @@ export interface CompactionPolicyConfig {
   summarizationModel?: string
   /** Provider generation cap for summarization. Defaults to the resolved `headroomTokens`; an explicit cap must be positive. */
   maxTokens?: number
-  /** Extra attempts after the first compaction when pressure remains above threshold. Defaults to `8`. */
+  /** Extra attempts after the first compaction when pressure remains above threshold. Defaults to `1`. */
   compactionRetries?: number
   /** Maximum retries after canonical context overflow; `0` disables recovery. Defaults to `1`. */
   maxOverflowRetries?: number
@@ -1987,28 +1987,7 @@ export interface LspLocalServerConfig {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-lsp-stdio -->
 
-<<<<<<< HEAD
-来源：[`packages/lsp/lsp-stdio/src/index.ts:82`](../packages/lsp/lsp-stdio/src/index.ts)
-
-<a id="deepseek-aidsh-max-token-continuation"></a>
-
-## `@deepseek-ai/dsh-max-token-continuation`
-
-```ts config-catalog
-/** Plugin configuration. */
-export interface Config {
-  /** Maximum automatic continuations in one turn (default 3; 0 disables continuation). */
-  maxContinuations?: number
-  /** Model-facing instruction used for each automatic continuation. */
-  prompt?: string
-}
-```
-
-来源：[`packages/guard/max-token-continuation/src/index.ts:19`](../packages/guard/max-token-continuation/src/index.ts)
-
-=======
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-mcp-client -->
->>>>>>> upstream/master
 <a id="deepseek-aidsh-mcp-client"></a>
 
 ## `@deepseek-ai/dsh-mcp-client`

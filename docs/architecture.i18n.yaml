@@ -2,10 +2,6 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/architecture.md
-<<<<<<< docs/architecture.i18n.yaml:current
-architecture.md: a647771b9ef94c4872e30d9dfa258cc28fba52ac
-architecture.zh.md: 3d75b70e47a0ec4c6b7720f761e81f3f4396fc13
-=======
 /deepseek-harness-architecture:
   en: 2125f3ec236bc7b2
   zh: 23d8815579592ec4
@@ -39,4 +35,3 @@ architecture.zh.md: 3d75b70e47a0ec4c6b7720f761e81f3f4396fc13
 /deepseek-harness-architecture/where-new-behavior-goes:
   en: 9b2eb0539a9cd0d6
   zh: 4f575277b91d4e5c
->>>>>>> docs/architecture.i18n.yaml:other

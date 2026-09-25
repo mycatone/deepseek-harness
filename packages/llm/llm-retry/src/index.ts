@@ -11,12 +11,7 @@ import z from '@deepseek-ai/schemastery'
 import { z as zod } from 'zod'
 import type { Agent, RequestErrorAction } from '@deepseek-ai/dsh-agent'
 import type { LlmFailure, ResolvedRetryPolicy } from '@deepseek-ai/dsh-llm'
-<<<<<<< HEAD
-import { resolveRetryDelay, waitForRetryDelay } from '@deepseek-ai/dsh-llm'
-import type { SessionEvent } from '@deepseek-ai/dsh-session'
-=======
 import type {} from '@deepseek-ai/dsh-session-projection'
->>>>>>> upstream/master
 import { RetryId } from './brand.ts'
 import type { LlmRetryEventData } from './types.ts'
 
@@ -61,6 +56,13 @@ async function settleDownstream(
   }
 }
 
+function localDelay(config: ResolvedRetryPolicy, retry: number, random: () => number): number {
+  const exponent = Math.min(retry - 1, 1024)
+  const exponential = Math.min(config.initialDelayMs * 2 ** exponent, config.maxDelayMs)
+  const jitter = 1 - config.jitterRatio + 2 * config.jitterRatio * random()
+  return Math.min(exponential * jitter, config.maxDelayMs)
+}
+
 function retryPolicyKey(policy: ResolvedRetryPolicy): string {
   return policy.mode === 'always'
     ? JSON.stringify([policy.mode, policy.initialDelayMs, policy.maxDelayMs, policy.jitterRatio])
@@ -74,8 +76,6 @@ function retryPolicyKey(policy: ResolvedRetryPolicy): string {
     ])
 }
 
-<<<<<<< HEAD
-=======
 function retryStateKey(provider: string, policyKey: string): string {
   return JSON.stringify([provider, policyKey])
 }
@@ -95,7 +95,6 @@ function cancellableDelay(delayMs: number, signal: AbortSignal): Promise<boolean
   })
 }
 
->>>>>>> upstream/master
 /**
  * Install provider-routed normal or unbounded request recovery.
  * @param ctx - plugin context that owns the listener and active waits.
@@ -187,7 +186,7 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
         failure,
       }
     agent.session.append('llm/retry', eventData)
-    if (!await waitForRetryDelay(delayMs, fusedSignal)) return
+    if (!await cancellableDelay(delayMs, fusedSignal)) return
     agent.session.append('llm/retry-started', { retryId, turn, step, retry })
     return { kind: 'retry' }
   }
@@ -223,11 +222,6 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
     const previousRetry = previous?.retry ?? 0
     if (policy.mode === 'normal' && previousRetry >= policy.maxRetries) return next()
     const retry = previousRetry + 1
-<<<<<<< HEAD
-    const retryId = priorPolicyRetry?.data.retryId ?? RetryId(randomUUID())
-    const delayMs = resolveRetryDelay(policy, failure, retry, random)
-    if (delayMs === undefined) return next()
-=======
     const retryId = previous?.retryId ?? RetryId(randomUUID())
     let delayMs: number
     if (failure.providerRetryAfterMs !== undefined
@@ -242,7 +236,6 @@ export function apply(ctx: Context, config: Config = {}, internals: RetryInterna
     } else {
       delayMs = localDelay(policy, retry, random)
     }
->>>>>>> upstream/master
 
     return backoff(agent, turn, step, failure, provider, policy, policyKey, retry, retryId, delayMs, signal)
   }

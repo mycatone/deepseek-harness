@@ -2,10 +2,6 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write docs/subsystems/compaction.md
-<<<<<<< docs/subsystems/compaction.i18n.yaml:current
-compaction.md: 669f9f134b17d3d06e6406c48f973084fe69705e
-compaction.zh.md: a7079226681ba5735de3cd32646fbdcf48fb4192
-=======
 /compaction:
   en: 7eb1d2d84fb85447
   zh: 1927119f75c0dd45
@@ -24,4 +20,3 @@ compaction.zh.md: a7079226681ba5735de3cd32646fbdcf48fb4192
 /compaction/tool-result-pruning-outcomes:
   en: 27091b0a3d454575
   zh: e22431e27e1349f2
->>>>>>> docs/subsystems/compaction.i18n.yaml:other

@@ -4,11 +4,7 @@ import { AttachmentId } from '@deepseek-ai/dsh-attachment'
 import BasicCompactionEngine from '@deepseek-ai/dsh-compaction-basic'
 import type { BasicCompactionConfig } from '@deepseek-ai/dsh-compaction-basic'
 import { selectCompactableRange } from '@deepseek-ai/dsh-compaction-basic/src/region.ts'
-<<<<<<< HEAD
-import { estimateCompactionInstruction } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
-=======
 import { frameSummary } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
->>>>>>> upstream/master
 import type { SummarizationInput, SummaryResult } from '@deepseek-ai/dsh-compaction-basic/src/summarizer.ts'
 import { CompactionId, toolPairingBalancedAfter, toolPairingBalancedBefore } from '@deepseek-ai/dsh-compaction'
 import {
@@ -320,13 +316,8 @@ describe('compact configuration and defaults', () => {
       retainRatio: 0.16,
       summarizationProvider: '',
       summarizationModel: '',
-<<<<<<< HEAD
-      maxTokens: 8192,
-      compactionRetries: 8,
-=======
       maxTokens: 65_536,
       compactionRetries: 1,
->>>>>>> upstream/master
       maxOverflowRetries: 1,
       modelPolicies: [],
       auto: true,
@@ -754,45 +745,6 @@ describe('pressure measurement and retention', () => {
     expect(session.snapshotEvents().some(event => event.type === 'compaction/start')).toBe(false)
   })
 
-  it('segments an oversized overflow so every summary request fits the routed context', async () => {
-    const contextWindow = 1_000
-    const ctx = createContext(contextWindow)
-    const compact = service({
-      auto: false,
-      thresholdRatio: 0.8,
-      retainTokens: 0,
-    }, ctx)
-    const session = conversation(10)
-
-    await expect(compactIfNeeded(compact, session, 'context-overflow')).resolves.not.toBeNull()
-    expect(compact.calls.length).toBeGreaterThan(1)
-    const instructionTokens = estimateCompactionInstruction(ctx.tokenMeter)
-    for (const { input } of compact.calls) {
-      const requestTokens = input.messages.reduce(
-        (total, message) => total + ctx.tokenMeter.estimateMessage(message),
-        instructionTokens,
-      )
-      expect(requestTokens).toBeLessThan(contextWindow)
-    }
-    expect(ctx.tokenMeter.measure(session).totalTokens).toBeLessThan(contextWindow * 0.8)
-  })
-
-  it('uses bounded segments when provider overflow corrects an underestimated request', async () => {
-    const contextWindow = 5_000
-    const ctx = createContext(contextWindow)
-    const compact = service({
-      auto: false,
-      thresholdRatio: 0.2,
-      retainTokens: 0,
-    }, ctx)
-    const session = conversation(10)
-    expect(ctx.tokenMeter.measure(session).totalTokens).toBeLessThan(contextWindow)
-
-    await expect(compactIfNeeded(compact, session, 'context-overflow')).resolves.not.toBeNull()
-    expect(compact.calls.length).toBeGreaterThan(1)
-    expect(ctx.tokenMeter.measure(session).totalTokens).toBeLessThan(contextWindow * 0.2)
-  })
-
   it('does nothing below threshold and compacts a priced head above threshold', async () => {
     const compact = service(compactConfig)
     expect(await compactIfNeeded(compact, conversation(2))).toBeNull()
@@ -987,18 +939,6 @@ describe('pressure measurement and retention', () => {
 
     const priced = ctx.tokenMeter.measure(session)
     expect(selectCompactableRange(session, priced, 1)).toBeNull()
-  })
-
-  it('caps a compacted head at the latest balanced node within the summary budget', () => {
-    const ctx = createContext()
-    const session = conversation(3)
-    const priced = ctx.tokenMeter.measure(session)
-    const budget = priced.nodes[0]!.tokens + priced.nodes[1]!.tokens
-
-    expect(selectCompactableRange(session, priced, 0, budget)).toEqual({
-      start: session.surface.nodes[0],
-      end: session.surface.nodes[1],
-    })
   })
 })
 
@@ -1410,37 +1350,6 @@ class ScriptedAdapter extends LlmAdapter {
   }
 }
 
-class TransientSummaryAdapter extends LlmAdapter {
-  calls = 0
-  lastOptions: GenerateOptions | undefined
-
-  override providerRetryPolicy() {
-    return {
-      mode: 'normal' as const,
-      maxRetries: 1,
-      retryableCodes: ['TRANSPORT'],
-      initialDelayMs: 1,
-      maxDelayMs: 1,
-      jitterRatio: 0,
-    }
-  }
-
-  override async * stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
-    this.calls += 1
-    this.lastOptions = options
-    if (this.calls === 1) {
-      yield {
-        type: 'finish',
-        reason: { kind: 'error', failure: { message: 'Connection error.', code: 'TRANSPORT' } },
-      }
-      return
-    }
-    yield { type: 'block-start', index: 0, blockType: 'text' }
-    yield { type: 'text-delta', index: 0, text: 'recovered summary' }
-    yield { type: 'finish', reason: { kind: 'stop' } }
-  }
-}
-
 class ExposedCompactionEngine extends BasicCompactionEngine {
   runSummarize(
     input: SummarizationInput,
@@ -1549,25 +1458,6 @@ describe('default one-shot summarizer', () => {
     })
     const instruction = adapter.lastOptions?.messages.at(-1)?.content[0]
     expect(instruction?.type === 'text' ? instruction.text : '').toContain('## Primary Request and Intent')
-  })
-
-  it('retries a transient summarization failure under the provider policy', async () => {
-    const ctx = new Context()
-    await ctx.plugin(LlmRuntime)
-    void new TokenMeter(ctx)
-    const adapter = new TransientSummaryAdapter()
-    ctx.llm.registerAdapter([MODEL], adapter)
-    const compact = new ExposedCompactionEngine(ctx, { auto: false })
-
-    await expect(compact.runSummarize(
-      promptInput('history'),
-      agent(conversation(1), MODEL),
-      SIGNAL,
-    )).resolves.toMatchObject({
-      summary: [{ type: 'text', text: 'recovered summary' }],
-    })
-    expect(adapter.calls).toBe(2)
-    expect(adapter.lastOptions?.purpose).toBe('compaction')
   })
 
   it('replays the conversation prefix and appends the instruction as the final message', async () => {
@@ -2024,28 +1914,6 @@ describe('automatic listener and loader composition', () => {
     expect(warnings).toContainEqual(expect.stringContaining('retrying from the replacement surface'))
   })
 
-  it('does not consume the provider retry cap when partial recovery must resume', async () => {
-    const ctx = createContext(10_000)
-    void new ToolResultPruner(ctx, {
-      thresholdChars: 100,
-      headChars: 20,
-      tailChars: 10,
-    })
-    const compact = new TestCompactionEngine(ctx, {
-      maxOverflowRetries: 1,
-      thresholdRatio: 1,
-      retainTokens: 900,
-    })
-    const session = oversizedToolResult(3_000, true)
-    const owner = agent(session, MODEL)
-    compact.error = new Error('summary connection failed after prune')
-
-    expect(await recover(ctx, owner, overflow())).toBe(true)
-    compact.error = undefined
-    expect(await recover(ctx, owner, overflow())).toBe(true)
-    expect(session.events.some(event => event.type === 'compaction/summary')).toBe(true)
-  })
-
   it('lets cancellation win when summary throws after a durable prune', async () => {
     const ctx = createContext(10_000)
     const controller = new AbortController()
@@ -2069,7 +1937,7 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('preserves the newest whole tool-call/result pair during forced overflow compaction', async () => {
-    const ctx = createContext(10_000)
+    const ctx = createContext()
     void new TestCompactionEngine(ctx, {
       headroomTokens: 0,
       maxTokens: 8192,
@@ -2172,7 +2040,7 @@ describe('automatic listener and loader composition', () => {
   })
 
   it('recovers an overflow for an unlisted routed model', async () => {
-    const ctx = createContext(10_000)
+    const ctx = createContext()
     void new TestCompactionEngine(ctx)
     const session = conversation(2)
     session.append('request/header', {

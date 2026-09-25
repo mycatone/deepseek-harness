@@ -101,13 +101,8 @@ export function resolveConfig(config: BasicCompactionConfig = {}): ResolvedConfi
     ...retention,
     summarizationProvider: config.summarizationProvider ?? '',
     summarizationModel: config.summarizationModel ?? '',
-<<<<<<< HEAD
-    maxTokens: config.maxTokens ?? 8192,
-    compactionRetries: config.compactionRetries ?? 8,
-=======
     maxTokens,
     compactionRetries: config.compactionRetries ?? 1,
->>>>>>> upstream/master
     maxOverflowRetries: config.maxOverflowRetries ?? 1,
     modelPolicies,
     auto: config.auto ?? true,

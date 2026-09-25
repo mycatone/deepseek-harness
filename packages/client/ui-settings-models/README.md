@@ -25,11 +25,7 @@ English | [中文](README.zh.md)
 <a id="use-this-package"></a>
 ## Use this package
 
-<<<<<<< HEAD
-A pi-ai profile's `models` list is edited on the card: one row per model showing its id and display name, with the context window and output cap behind a per-row disclosure and two label-free actions — expand and delete — on the right. A row with either capacity configured opens its disclosure when the editor opens, while an unsized row stays folded. An empty list means "serve this route's built-in catalog", so a row is only ever added deliberately; clearing a capacity drops it rather than storing a value the schema would reject, and the adapter's route-level fallbacks size whatever configuration leaves out — an empty capacity shows those fallbacks' magnitude as its placeholder, a hint rather than a mirror, since the field counts `K` as 1000 and a deployment may override them. A capacity that is not a positive integer is simply not stored.
-=======
 Saving credentials or a custom provider preserves the selected model. The user can select an available model from the composer.
->>>>>>> upstream/master
 
 DeepSeek Account appears first and DeepSeek second in the provider list; third-party providers retain their directory order.
 

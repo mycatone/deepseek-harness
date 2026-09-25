@@ -174,6 +174,8 @@ flowchart LR
   cfg --> plugin_dsh_base_repeat_tool_reminder
   plugin_dsh_base_max_token_continuation["max-token-continuation<br/>@deepseek-ai/dsh-max-token-continuation"]
   cfg --> plugin_dsh_base_max_token_continuation
+  plugin_dsh_base_deepseek_model_cache["deepseek-model-cache<br/>@deepseek-ai/dsh-deepseek-model-cache"]
+  cfg --> plugin_dsh_base_deepseek_model_cache
   plugin_dsh_base_web["web<br/>@deepseek-ai/dsh-web"]
   cfg --> plugin_dsh_base_web
   plugin_dsh_base_web_search_deepseek["web-search-deepseek<br/>@deepseek-ai/dsh-web-search-deepseek"]
@@ -283,6 +285,7 @@ flowchart LR
 | `tool-ralph` | `@deepseek-ai/dsh-tool-ralph` |
 | `repeat-tool-reminder` | `@deepseek-ai/dsh-repeat-tool-reminder` |
 | `max-token-continuation` | `@deepseek-ai/dsh-max-token-continuation` |
+| `deepseek-model-cache` | `@deepseek-ai/dsh-deepseek-model-cache` |
 | `web` | `@deepseek-ai/dsh-web` |
 | `web-search-deepseek` | `@deepseek-ai/dsh-web-search-deepseek` |
 | `web-fetch-http` | `@deepseek-ai/dsh-web-fetch-http` |

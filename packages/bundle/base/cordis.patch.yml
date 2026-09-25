@@ -339,6 +339,8 @@
 
     - id: compaction-basic
       name: '@deepseek-ai/dsh-compaction-basic'
+      config:
+        compactionRetries: 8
 
     # Human `/compact`: one useful reduction below the automatic threshold. Backend
     # independent, so it follows whichever compaction service this leaf mounts.
@@ -457,7 +459,6 @@
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
-<<<<<<< HEAD
     # Resume output-limit truncations in the same turn while retaining a hard
     # ceiling on provider calls that repeatedly exhaust their output budget.
     - id: max-token-continuation
@@ -465,15 +466,9 @@
       config:
         maxContinuations: 3
 
-    # Every mode enables the stable model-facing web_search tool. DeepSeek search
-    # resolves the same DEEPSEEK_API_KEY credential the Models page manages for
-    # chat, at each search; its Messages endpoint is separate from the
-    # chat-completions endpoint, so it takes its own base-URL override. Fetch stays
-    # disabled and no fetch provider is mounted: that provider defers SSRF
-    # protection and the model would choose the request target. Search is a full
-    # auxiliary model request with server-side retrieval, so this shipped DeepSeek
-    # route gets 60s while the provider-neutral tool default remains 30s.
-=======
+    - id: deepseek-model-cache
+      name: '@deepseek-ai/dsh-deepseek-model-cache'
+
     # The shared base enables the stable model-facing web_search and web_fetch
     # tools. The Web app disables this host row and composes both tools per agent
     # preset; products with a stricter network policy override tool-web. DeepSeek
@@ -485,7 +480,6 @@
     # Search is a full auxiliary model request with server-side retrieval, so this
     # shipped DeepSeek route gets 60s while the provider-neutral tool default
     # remains 30s.
->>>>>>> upstream/master
     - id: web
       name: '@deepseek-ai/dsh-web'
       config:

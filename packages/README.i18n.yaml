@@ -2,10 +2,6 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/README.md
-<<<<<<< packages/README.i18n.yaml:current
-README.md: a90750338e3aa61c76aff4c182dd698a4075ca17
-README.zh.md: ad7c45b8e52924bf3e6bf431868a9084aca908bf
-=======
 /:
   en: b2be0c61aa2780eb
   zh: c308e935e481f211
@@ -33,4 +29,3 @@ README.zh.md: ad7c45b8e52924bf3e6bf431868a9084aca908bf
 /packages/dev-note:
   en: 5de1d6304e00c58f
   zh: 8d8225361cfa29e5
->>>>>>> packages/README.i18n.yaml:other

@@ -74,13 +74,7 @@ Every inbox mutation commits one normalized `agent/inbox/spliced` event. The pro
 
 Each step sends the session's derived history — with the latest non-empty `system/message` node as the effective prompt, or no system messages when the rendered prompt is empty — and its visible tool schemas; the model's tool calls run through the guarded tool pipeline and every accepted fact is appended to the session log before the next step derives from it. Parallel-safe calls may overlap up to `maxParallelToolCalls`; exclusive calls run alone as ordering barriers. Cancellation is cooperative: `agent.cancel()` aborts the current activity and, unless `keepInbox` is set, clears pending work; a cancelled stream finalizes the text already delivered to the user.
 
-<<<<<<< HEAD
-The last attempted step owns the turn's completed or `max-tokens` outcome. A policy listener may steer another step from `agent/turn-stopping`; if that continuation completes, the whole turn is completed, while a final truncated step remains `max-tokens`. The base bundle installs the bounded [`dsh-max-token-continuation`](../../guard/max-token-continuation/README.md) policy.
-
-After `agent/request` returns a provider/model call config, the loop asks `ctx.llm.prepareCall()` to validate adapter-owned fields and materialize configured reasoning-effort and output-token defaults under the active turn signal. The prepared call retains the exact adapter registration across this asynchronous resolution, `request/header` logging, and terminal dispatch, so HMR cannot mix one adapter's capability result with another adapter's request. The header records the effective config and which fields came from the adapter. Before the next waterfall, the loop removes those marked fields from the proposal so the current exact route rematerializes its own defaults; unmarked explicit settings persist across steps and route changes. A route with no registered adapter preserves the proposed config so an `llm/stream` listener can own and short-circuit it; unhandled terminal dispatch still fails with `NO_ADAPTER`. A new loop instance follows the same adapter-default marker rule when resuming.
-=======
 -----
->>>>>>> upstream/master
 
 <a id="understand-the-implementation"></a>
 ## Understand the implementation

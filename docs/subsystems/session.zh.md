@@ -711,7 +711,7 @@ interface TurnEndReasonMap {
    * flattened from any other error.
    */
   error: { kind: 'error'; error: LlmFailure }
-  /** The final attempted step reached its output-token ceiling. */
+  /** At least one step reached its output-token ceiling, even if a plugin continued the turn. */
   'max-tokens': { kind: 'max-tokens' }
   /**
    * A crash-orphaned turn was closed after the fact: agent-loop resume appends
@@ -730,11 +730,7 @@ interface TurnEndReasonMap {
 }
 ```
 
-<<<<<<< HEAD
-`max-tokens` 在最后一次尝试的步骤被截断时与模型调用中同名的 `FinishReason` 对应。插件可以从 `agent/turn-stopping` 引导续写；后续步骤完成时，该轮以 `completed` 结束，而未解决的最终截断仍可与正常停止区分。取消和错误仍是不同的结果。`interrupted` 是唯一不会由任何 loop 发出的原因：它由崩溃恢复合成（见 [persistence.md](persistence.zh.md)）。该 map 可通过合并扩展。
-=======
 `max-tokens` 与模型调用中同名的 `FinishReason` 对应：只要轮次内有任何步骤以 `max-tokens` 结束，整个轮次就以 `max-tokens` 而不是 `completed` 结束（即使之后继续执行，截断事实仍优先），让消费方能够区分正常停止和截断停止。取消和错误仍是不同的结果。loop 不会实时发出 `interrupted` 或 `forked`：崩溃恢复合成 `interrupted`（见 [persistence.md](persistence.zh.md)），而 fork 种子构造合成 `forked`。该 map 可通过合并扩展。
->>>>>>> upstream/master
 
 ## 执行封闭与独立事件
 

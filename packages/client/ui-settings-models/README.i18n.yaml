@@ -2,10 +2,6 @@
 # section, a hash of its English and Chinese blocks outside code blocks and generated regions.
 # After editing either side, bring the other along and re-record with:
 #   pnpm run verify-translation-pairing --write packages/client/ui-settings-models/README.md
-<<<<<<< packages/client/ui-settings-models/README.i18n.yaml:current
-README.md: 9cfe1412a5d1e1a42d38246a2e58af19fdde6e92
-README.zh.md: 82f2cd31bfedb4038efdf12be7483ffce5c6bd27
-=======
 /:
   en: d1bc4d9ef67bfb19
   zh: d095e4dc76f1c5e0
@@ -63,4 +59,3 @@ README.zh.md: 82f2cd31bfedb4038efdf12be7483ffce5c6bd27
 /deepseek-ai-dsh-client-ui-settings-models/known-limitations-and-deferred-work/dev-note:
   en: 4f6749870e661a48
   zh: 4953f3ea814546a4
->>>>>>> packages/client/ui-settings-models/README.i18n.yaml:other

@@ -14,12 +14,7 @@ import { imagePricing, inlineImages, prepareFileIds, prepareImages } from './ima
 import { serialize } from './serialize.ts'
 import { parseSse } from './sse.ts'
 import { translate } from './translate.ts'
-<<<<<<< HEAD
-import type { WireError, WireRequest } from './types.ts'
-import { getCachedModelInfo } from './dynamic-model-fetcher.ts'
-=======
 import { providerError, providerErrorDetail } from './transport.ts'
->>>>>>> upstream/master
 
 /** DeepSeek provider using Messages content and native thinking replay. */
 export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapter {
@@ -42,71 +37,9 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
   override resolveModel(provider: string, model: string, _signal?: AbortSignal) {
     return Promise.resolve(modelInfo(this.dependencies.options(), provider, model))
   }
-<<<<<<< HEAD
-
-  override listModels(provider: string): Promise<readonly LlmModelInfo[]> {
-    return Promise.resolve(this.modelsFor(this.config.options()).map(model => modelInfo(provider, model)))
-  }
-
-  override resolveModel(
-    provider: string,
-    model: string,
-    _signal?: AbortSignal,
-  ): Promise<LlmResolvedModelInfo> {
-    return Promise.resolve(this.modelInfoFor(this.config.options(), provider, model))
-  }
-
-  private modelInfoFor(
-    connection: DeepSeekConnectionOptions,
-    provider: string,
-    model: string,
-  ): LlmResolvedModelInfo {
-    const configured = this.modelsFor(connection).find(entry => entry.id === model)
-    const contextWindow = configured?.contextWindow ?? connection.defaultContextWindow
-    return {
-      // An uncatalogued endpoint is safely treated as text-only. Declaring an
-      // unverified image capability would let the host persist input that the
-      // endpoint may reject on every later turn.
-      ...configured === undefined
-        ? { provider, id: model, name: model, inputModalities: ['text' as const] }
-        : modelInfo(provider, configured),
-      context: { contextWindow },
-      defaultMaxTokens: configured?.maxTokens ?? connection.maxTokens,
-      ...connection.defaults.thinking === 'disabled'
-        ? {
-          reasoning: {
-            efforts: OFF_ONLY_REASONING_EFFORTS,
-            defaultEffort: OFF_REASONING_EFFORT,
-          },
-        }
-        : {
-          reasoning: {
-            efforts: REASONING_EFFORTS,
-            defaultEffort: connection.defaults.reasoningEffort === 'off'
-              ? OFF_REASONING_EFFORT
-              : connection.defaults.reasoningEffort === 'low'
-                ? LOW_REASONING_EFFORT
-                : connection.defaults.reasoningEffort === 'max'
-                  ? MAX_REASONING_EFFORT
-                  : HIGH_REASONING_EFFORT,
-          },
-        },
-    }
-  }
-
-  private modelsFor(connection: DeepSeekConnectionOptions): readonly DeepSeekCatalogModel[] {
-    const models = new Map(connection.models.map(model => [model.id, model]))
-    for (const model of getCachedModelInfo()) {
-      if (!models.has(model.id)) models.set(model.id, model)
-    }
-    return [...models.values()]
-  }
-
-=======
   override imageRequestPricing(_provider: string, model: string) {
     return imagePricing(this.dependencies.options(), model, this.imageAccess)
   }
->>>>>>> upstream/master
   override prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
     const connection = this.dependencies.options()
     return Promise.resolve({ model: modelInfo(connection, provider, model), stream: options => this.generate(options, connection) })
