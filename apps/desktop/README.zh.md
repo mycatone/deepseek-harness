@@ -289,9 +289,13 @@ Apple 工具使用 macOS 当前活动网络服务的 HTTP/HTTPS 代理。配置�
 
 ```sh
 pnpm run package:desktop:win:x64:unsigned
+# 根目录别名：
+pnpm run package:win:x64:unsigned
 ```
 
 该命令要求设置 `DSH_DESKTOP_APP_ID` 并具备常规构建依赖，包括编译原生模块所需的 Python 和 Visual C++ 构建工具。Python 不在 `PATH` 中时，将 `PYTHON` 设置为其可执行文件路径。命令将安装包写入 `.desktop-build/targets/win-x64/unsigned-artifacts/`，省略自动更新配置，清除签名凭据，且不生成发布完成记录。它不需要 EV 凭据或更新源地址。签名打包和上传命令仍遵循正式发布要求。
+
+本机未签名打包字段与命令、账号登录域名 / Platform 接口、网页完成页 `dsh://open` 置前桌面，以及「开发版有自定义大模型与登录改配、安装包没有」的原因，见 [local-windows-unsigned.zh.md](local-windows-unsigned.zh.md)。
 
 ### Windows 安装界面
 
