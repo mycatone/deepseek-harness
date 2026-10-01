@@ -13,9 +13,16 @@ import type { Session } from '@deepseek-ai/dsh-session'
 
 declare module '@deepseek-ai/dsh-llm' {
   interface MessageSourceMap {
-    plugin: {
-      kind: 'plugin'
-      plugin: string
+    /**
+     * Attribution for a message this package writes.
+     *
+     * The `kind` is the package's own name rather than the literal `'plugin'`. Format V4 refuses
+     * `'plugin'` — `session-format-v3-to-v4/src/message-sources.ts` throws
+     * `format v4 message requires a producer-owned source kind` for it, and that file's own header calls it a
+     * *retired plugin wrapper*. A producer names itself; there is no shared wrapper kind.
+     */
+    'max-token-continuation': {
+      kind: 'max-token-continuation'
       form: 'notice'
       summary: string
     }
@@ -103,8 +110,7 @@ export function apply(ctx: Context, config: Config): void {
     agent.steer(createUserMessage({
       content: [{ type: 'text', text: prompt }],
       source: {
-        kind: 'plugin',
-        plugin: name,
+        kind: name,
         form: 'notice',
         summary: boundContextSummary(`Automatic continuation ${count + 1}/${maxContinuations}`),
       },

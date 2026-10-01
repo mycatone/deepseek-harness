@@ -458,13 +458,13 @@
         thresholds: [3, 5, 8]
         argumentsPreviewChars: 500
 
-    # Continue a response cut off by the output-token limit, at most three
+    # Continue a response cut off by the output-token limit, at most eight
     # times in one turn. The turn outcome stays max-tokens once any step hits
     # the ceiling; this row only supplies the missing tail.
     - id: max-token-continuation
       name: '@deepseek-ai/dsh-max-token-continuation'
       config:
-        maxContinuations: 3
+        maxContinuations: 8
 
     # The shared base enables the stable model-facing web_search and web_fetch
     # tools. The Web app disables this host row and composes both tools per agent
