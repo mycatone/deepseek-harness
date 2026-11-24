@@ -1,44 +1,30 @@
+---
+description: "Continue responses cut off by the output-token limit within a bounded per-turn budget."
+kind: "package-reference"
+---
+
 # @deepseek-ai/dsh-max-token-continuation
+
+English | [中文](README.zh.md)
 
 ## Summary
 
-Continues a model response that the provider cut off at its per-request output-token
-ceiling, so a long answer arrives whole instead of stopping mid-sentence. The turn's
-outcome stays `max-tokens` — this package supplies the missing tail and nothing else.
+Complete the missing tail of a response cut off by the model's output-token limit. Each automatic continuation adds a retained prompt and another model request. A per-turn budget limits the extra work; responses that stop for another reason are left unchanged.
 
 ## Table of Contents
 
 - [Use this package](#use-this-package)
-  - [When to choose it](#when-to-choose-it)
-  - [Setting the continuation budget](#setting-the-continuation-budget)
-  - [What you get](#what-you-get)
 - [Understand the implementation](#understand-the-implementation)
-  - [Design philosophy](#design-philosophy)
-  - [Detection: the durable stream finish](#detection-the-durable-stream-finish)
-  - [Continuation delivery](#continuation-delivery)
-  - [Source map](#source-map)
-- [Further Exploration](#further-exploration)
 - [Model Experience](#model-experience)
-  - [Continuation context message](#continuation-context-message)
-    - [What the model sees](#what-the-model-sees)
-      - [Default continuation message](#default-continuation-message)
-    - [Token effect](#token-effect)
-    - [KV Cache effect](#kv-cache-effect)
 - [Known Limitations and Deferred Work](#known-limitations-and-deferred-work)
-  - [No runtime invariant is published](#no-runtime-invariant-is-published)
-  - [A single oversized unit defeats the budget](#a-single-oversized-unit-defeats-the-budget)
-  - [The turn-max-tokens notice is unconditional](#the-turn-max-tokens-notice-is-unconditional)
+- [Dev Note](#dev-note)
 
+-----
+
+<a id="use-this-package"></a>
 ## Use this package
 
-### When to choose it
-
-Choose it when a task produces an answer long enough to hit the provider's
-output-token ceiling, and stopping mid-answer costs more than the extra requests.
-It composes with context-window compaction rather than replacing it: compaction lowers
-the *input* budget, this package supplies the *output* tail.
-
-### Setting the continuation budget
+The base bundle mounts this plugin with eight automatic continuations per turn. Override its row to change the budget or instruction:
 
 ```yaml
 - id: max-token-continuation
@@ -48,62 +34,27 @@ the *input* budget, this package supplies the *output* tail.
     prompt: Continue from the cutoff. Do not repeat finished text. Reissue any tool call that was cut off.
 ```
 
-`maxContinuations` bounds the continuations **within one turn**; `0` disables
-continuation and installs no turn listener. The shipped base bundle sets `8`. The bound
-is per turn, so a later turn in the same session receives the full budget again.
+The plugin's own default is three continuations. Zero disables steering. Negative or noninteger budgets and empty instructions fail configuration. Each later turn receives a new budget.
 
-### What you get
+-----
 
-Each continuation is a durable `user/message` carrying a `notice`-form source named
-`Automatic continuation N/M`, so the transcript shows that the tail was supplied
-automatically rather than lost.
-
+<a id="understand-the-implementation"></a>
 ## Understand the implementation
 
-### Design philosophy
+The plugin reads the terminal finish in durable `assistant/message` events. It steers only when that record belongs to the stopping turn and reports `max-tokens`. Missing finishes and other finish reasons do not trigger continuation. Its injected `user/message` uses source kind `max-token-continuation` and summary `Automatic continuation N/M`. Existing messages and turn outcomes are not rewritten.
 
-The package observes durable state and never alters the turn's outcome. It reads the
-finish the session log already recorded and steers only on a truncation it can prove,
-so a turn that ended for any other reason is never continued.
+The [behavior tests](tests/max-token-continuation.spec.ts) exercise the real agent loop with a scripted model adapter, including exhausted budgets, fresh turns, disabled continuation, configuration failures, and messages without a terminal finish.
 
-### Detection: the durable stream finish
+-----
 
-`session/event` carries `assistant/message` with the assistant's persisted stream. The
-terminal `finish` record names the reason; only `max-tokens` triggers continuation. A
-stream with no terminal finish records no known reason and is left alone, as is a
-finish cached from an earlier turn — the cached turn number must equal the stopping
-turn.
-
-### Continuation delivery
-
-On `agent/turn-stopping` with a matching `(turn, max-tokens)` pair, `agent.steer()`
-injects the continuation message. The per-agent counter increments only on an actual
-steer, and a turn whose budget is exhausted returns without steering so the turn ends
-normally.
-
-### Source map
-
-| Concern | Location |
-|---|---|
-| Plugin entry, `Config`, detection, steering | `src/index.ts` |
-| Behavior suite | `tests/max-token-continuation.spec.ts` |
-
-## Further Exploration
-
-- `tests/max-token-continuation.spec.ts` drives every case through a real `AgentLoop`
-  against a scripted `MockAdapter`, asserting the injected messages and their durable
-  sources.
-- `packages/client/ui-chat/src/client/conversation-nodes/turn-max-tokens.ts` owns the
-  user-visible turn-end notice.
-
+<a id="model-experience"></a>
 ## Model Experience
 
 ### Continuation context message
 
 #### What the model sees
 
-At each continuation the agent receives the message below. No tool schema and no
-normal-call text is added.
+Each continuation adds one user message containing the configured instruction; no tool schema is added.
 
 ##### Default continuation message
 
@@ -113,33 +64,23 @@ Continue from the cutoff. Do not repeat finished text. Reissue any tool call tha
 
 #### Token effect
 
-One retained user message per continuation. `maxContinuations` therefore bounds the
-worst-case added context at `maxContinuations × prompt length`; the default prompt is
-roughly 94 characters.
+Each continuation retains its instruction and requests another model response. The budget bounds the number of extra instructions and requests; generated output determines their actual token cost.
 
 #### KV Cache effect
 
-Append-only; the continuation follows the reusable request prefix and does not
-invalidate existing KV-cache entries.
+The continuation appends to the recorded history without editing preceding messages. The provider determines whether the unchanged prefix receives a cache hit.
 
 ## Known Limitations and Deferred Work
 
-### No runtime invariant is published
+<a id="known-limitations-and-deferred-work"></a>
 
-Continuation state is private to one turn, and the session log already validates its
-message sources and turn sequence, so no independent observation can diverge and this
-package publishes no `./invariant` companion.
+- Continuation cannot reduce an oversized retained input or replace context-window compaction.
+- Counters live in the plugin instance and do not persist across Host restarts.
+- This plugin does not remove the conversation client's max-token notice; the client owns that presentation.
 
-### A single oversized unit defeats the budget
+-----
 
-A retained unit larger than the compaction threshold cannot be reduced by surface
-compaction, so a turn holding one still reaches the context ceiling with no room to
-generate. Bound the size of individual tool results rather than raising
-`contextWindow` past the provider's real limit.
+<a id="dev-note"></a>
+### Dev Note
 
-### The turn-max-tokens notice is unconditional
-
-The conversation client materializes its turn-end notice from `turn/end` carrying
-`reason.kind === 'max-tokens'`, so it appears after successful automatic continuation
-as well as after an uncontinued truncation. Its copy still reads as manual recovery is
-needed.
+None.

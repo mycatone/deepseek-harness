@@ -1,0 +1,46 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write packages/guard/max-token-continuation/README.md
+/:
+  en: 99d10edf42b9204e
+  zh: c3e57658d92571d8
+/deepseek-ai-dsh-max-token-continuation:
+  en: a3173089751e2df4
+  zh: 24edb103231def5e
+/deepseek-ai-dsh-max-token-continuation/summary:
+  en: 9fdaec844ce713bc
+  zh: 700c30159799d537
+/deepseek-ai-dsh-max-token-continuation/table-of-contents:
+  en: 76368b6b1da79c80
+  zh: 434cf3c1f5db33cd
+/deepseek-ai-dsh-max-token-continuation/use-this-package:
+  en: 121ed093bdf4a36d
+  zh: 2ee1d53620755635
+/deepseek-ai-dsh-max-token-continuation/understand-the-implementation:
+  en: 747c1b06efeae011
+  zh: 958d24920d29fd1f
+/deepseek-ai-dsh-max-token-continuation/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/deepseek-ai-dsh-max-token-continuation/model-experience/continuation-context-message:
+  en: d7edf5dc1cea56e8
+  zh: dfd4dd51659568d4
+/deepseek-ai-dsh-max-token-continuation/model-experience/continuation-context-message/what-the-model-sees:
+  en: 0861f7b5c11e87a8
+  zh: 36cd1007738c1afa
+/deepseek-ai-dsh-max-token-continuation/model-experience/continuation-context-message/what-the-model-sees/default-continuation-message:
+  en: 22f979696b68dcb1
+  zh: 53c7c817386b28fc
+/deepseek-ai-dsh-max-token-continuation/model-experience/continuation-context-message/token-effect:
+  en: cf3aaf25c4776a0c
+  zh: df5b5a66133dce36
+/deepseek-ai-dsh-max-token-continuation/model-experience/continuation-context-message/kv-cache-effect:
+  en: 432b5aa5dae56b06
+  zh: a375680b1a1af254
+/deepseek-ai-dsh-max-token-continuation/known-limitations-and-deferred-work:
+  en: 60e46d96d39ae4a7
+  zh: f83e04e7a73ef3ec
+/deepseek-ai-dsh-max-token-continuation/known-limitations-and-deferred-work/dev-note:
+  en: 0a1253c6f7b5e8b9
+  zh: 9f56528562c7c914
