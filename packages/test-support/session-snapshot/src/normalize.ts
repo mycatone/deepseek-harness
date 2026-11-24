@@ -48,6 +48,7 @@ const FILE_URI_PATH_PREFIX_RE = /(?:^|[^a-z0-9+.-])file:\/\/\/?$/i
 
 /** A UUID v4 string, the shape `randomUUID()` produces for session ids. */
 const UUID_RE = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi
+const SHORT_JOB_ID_RE = /-[0-9a-f]{16}$/i
 // Separator runs also match JSON-escaped Windows paths; extraction preserves their exact serialized spelling.
 const LOCAL_SPILL_PATH_RE = new RegExp(
   String.raw`\{\{cwd\}\}[\\/]+\.spill[\\/]+session-[0-9a-f]{12}[\\/]+[0-9a-f]{12}-([A-Za-z0-9._~-]+?)`
@@ -273,14 +274,15 @@ function tokenizeFixtureValue(
  * path.
  *
  * @param rawLog The raw or refresh-stabilized session JSONL fixture.
+ * @param workspaceCwd The shared scenario workspace; omitted uses this Session's cwd.
  * @returns Compact JSONL whose known cwd spellings become `{{cwd}}`.
  * @throws If a non-empty line is invalid JSON or the session cwd has no basename.
  */
-export function tokenizeSessionFixtureCwd(rawLog: string): string {
+export function tokenizeSessionFixtureCwd(rawLog: string, workspaceCwd?: string): string {
   const lines = rawLog.split('\n')
   const firstLine = lines.find(line => line.trim().length > 0)
   const header = firstLine === undefined ? undefined : JSON.parse(firstLine) as { cwd?: unknown }
-  const cwd = typeof header?.cwd === 'string' ? header.cwd : ''
+  const cwd = workspaceCwd ?? (typeof header?.cwd === 'string' ? header.cwd : '')
   const basename = cwd.split(/[\\/]/).at(-1)
   if (basename === undefined || basename.length === 0) {
     throw new Error('acp-snapshot: cannot tokenize a cwd without a basename')
@@ -354,8 +356,35 @@ export function normalizeSessionLog(
   const cwdPathMode = options.cwdPathMode ?? 'canonical'
   const identityMode = options.identityMode ?? 'legacy'
   const lines = rawLog.split('\n').filter(line => line.trim().length > 0)
-  const records = lines.map((line) => {
-    const record = JSON.parse(line) as Record<string, unknown>
+  const parsed = lines.map(line => JSON.parse(line) as Record<string, unknown>)
+  const jobTokens = new Map<string, string>()
+  const reservedTokens = new Set(rawLog.match(/\{\{id:[1-9]\d*\}\}/g) ?? [])
+  let nextJobToken = 1
+  if (identityMode === 'legacy') {
+    for (const record of parsed) {
+      if ((record.type !== 'job/registered' && record.type !== 'job/settled')
+        || record.data === null || typeof record.data !== 'object') continue
+      const id = (record.data as Record<string, unknown>).jobId
+      if (typeof id !== 'string' || (id.search(UUID_RE) < 0 && !SHORT_JOB_ID_RE.test(id)) || jobTokens.has(id)) continue
+      let token: string
+      do { token = `{{id:${nextJobToken++}}}` } while (reservedTokens.has(token))
+      jobTokens.set(id, token)
+    }
+  }
+  const replaceJobs = (value: unknown): unknown => {
+    if (typeof value === 'string') {
+      let output = value
+      for (const [id, token] of jobTokens) output = output.split(id).join(token)
+      return output
+    }
+    if (Array.isArray(value)) return value.map(replaceJobs)
+    if (value !== null && typeof value === 'object') {
+      return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, replaceJobs(item)]))
+    }
+    return value
+  }
+  const records = parsed.map((raw) => {
+    const record = jobTokens.size === 0 ? raw : replaceJobs(raw) as Record<string, unknown>
     if (record.type === 'session') {
       if ('createdAt' in record) record.createdAt = 0
     } else if (isPackedFixtureRow(record)) {
@@ -385,6 +414,13 @@ export function normalizeSessionLog(
       if ('durationMs' in data) data.durationMs = 0
     }
     normalizeFeedbackClocks(record)
+    normalizeTimelineClocks(record)
+    if ((record.type === 'job/registered' || record.type === 'job/settled')
+      && record.data !== null && typeof record.data === 'object') {
+      const data = record.data as Record<string, unknown>
+      if ('startedAt' in data) data.startedAt = 0
+      if ('finishedAt' in data) data.finishedAt = 0
+    }
     if (record.type === 'goal/change' && record.data !== null && typeof record.data === 'object') {
       const data = record.data as Record<string, unknown>
       if ('createdAt' in data) data.createdAt = 0
@@ -503,11 +539,9 @@ function hasSessionFormatVersion(rawLog: string): boolean {
 }
 
 /**
- * Replace the rendered prompt text of every `system/message` event with the
- * `{{system}}` token. The text block keeps its position and type, so the
- * fixture still shows one system node per prompt version; an empty `content`
- * (no system prompt) stays empty. Request headers and every other line pass
- * through byte-for-byte; the transform is idempotent.
+ * Replace system text with `{{system}}`, preserving surrounding whitespace
+ * and separator blocks. Source attribution remains visible.
+ * Empty content stays empty; the transform is idempotent.
  *
  * @param rawLog The raw session `.jsonl` content.
  * @returns The JSONL with system-prompt text tokenized.
@@ -571,6 +605,7 @@ export function scrubSessionSnapshot(rawLog: string): string {
       record.sourceEventSeqs = decodeSeqRanges(record.sourceEventSeqs)
     }
     normalizeFeedbackClocks(record)
+    normalizeTimelineClocks(record)
     return JSON.stringify(record)
   }).join('\n')
 }
@@ -585,6 +620,28 @@ function normalizeFeedbackClocks(record: Record<string, unknown>): void {
   if ('updatedAt' in clocks) clocks.updatedAt = 0
 }
 
+/** Normalize only Timeline-owned task clocks and their card receipts. */
+function normalizeTimelineClocks(record: Record<string, unknown>): void {
+  const data = record.data as Record<string, unknown> | undefined
+  if (data === undefined) return
+  const zero = (value: unknown, keys: readonly string[]): void => {
+    if (value === null || typeof value !== 'object') return
+    const fields = value as Record<string, unknown>
+    for (const key of keys) {
+      if (typeof fields[key] === 'number') fields[key] = 0
+    }
+  }
+  if (record.type === 'plugin:timeline/tree') {
+    const tree = data.tree as { tasks?: unknown[] } | undefined
+    zero(tree, ['createdAt', 'lastTaskUpdate'])
+    for (const task of tree?.tasks ?? []) zero(task, ['createdAt', 'updatedAt'])
+    zero(data.receipt, ['at', 'previousAt'])
+  } else if (record.type === 'tool/result') {
+    const meta = data.meta as { timeline?: unknown } | undefined
+    zero(meta?.timeline, ['at', 'previousAt'])
+  }
+}
+
 /** Which independent model-request payloads a scrubber replaces. */
 interface ModelRequestScrubOptions {
   /** Tokenize the prompt text of every `system/message` event. */
@@ -593,12 +650,21 @@ interface ModelRequestScrubOptions {
   tools?: boolean
 }
 
-/** Return the first text block of a `system/message` payload, or `undefined` when it carries none. */
-function systemPromptBlock(data: Record<string, unknown>): Record<string, unknown> | undefined {
+/** Tokenize system text while retaining whitespace separators and source attribution. */
+function scrubSystemPrompt(data: Record<string, unknown>): boolean {
   const message = data.message as Record<string, unknown> | null | undefined
-  if (message === null || typeof message !== 'object' || !Array.isArray(message.content)) return undefined
-  const block = message.content[0] as Record<string, unknown> | null | undefined
-  return block !== null && typeof block === 'object' && typeof block.text === 'string' ? block : undefined
+  if (message === null || typeof message !== 'object' || !Array.isArray(message.content)) return false
+  let changed = false
+  const blocks: readonly unknown[] = message.content
+  for (const block of blocks) {
+    if (block === null || typeof block !== 'object' || !('text' in block) || typeof block.text !== 'string'
+      || block.text.trim().length === 0) continue
+    const text = block.text.trim()
+    const start = block.text.indexOf(text)
+    block.text = `${block.text.slice(0, start)}${SYSTEM}${block.text.slice(start + text.length)}`
+    changed = true
+  }
+  return changed
 }
 
 /** Transform the selected model-request payloads. */
@@ -612,10 +678,7 @@ function scrubModelRequestContent(rawLog: string, options: ModelRequestScrubOpti
     const data = record.data as Record<string, unknown> | null | undefined
     if (data === null || typeof data !== 'object') return line
     if (options.system === true && record.type === 'system/message') {
-      const block = systemPromptBlock(data)
-      if (block === undefined) return line
-      block.text = SYSTEM
-      return JSON.stringify(record)
+      return scrubSystemPrompt(data) ? JSON.stringify(record) : line
     }
     if (options.tools === true && record.type === 'request/header') {
       const header = data.header as Record<string, unknown> | null | undefined

@@ -5,7 +5,7 @@ import { SessionSeq, type SessionId } from '@deepseek-ai/dsh-session/types'
 import { workspaceTitleOf } from '@deepseek-ai/dsh-util-workspace-path'
 import type { WorkspaceId } from '@deepseek-ai/dsh-workspace/types'
 import { SESSION_SEARCH_RESULT_LIMIT } from '../../types.ts'
-import type { SessionProjectionMap } from '@deepseek-ai/dsh-session-projection/types'
+import type { SessionProjectionSummaryValues } from '@deepseek-ai/dsh-session-projection/types'
 import {
   createSnapshotStore, notifySubscribers, type ObservableSnapshot, type SnapshotStore,
 } from '@deepseek-ai/dsh-client-store'
@@ -15,12 +15,14 @@ import type { SessionFace } from '../contract/session.ts'
 import type {
   AgentContext, ISessions, SessionReference, SessionRetainInfo, SessionRetainOptions, SessionTarget,
 } from '../contract/sessions.ts'
-import type { SessionReferenceSource } from '../index.ts'
+import type { SessionReferenceSource, SessionRetainFacet } from '../index.ts'
 import { createScope, scopeIdentityOf, scopeOf as scopeTagOf } from '../scope.ts'
+import { EMPTY_RETAIN_INFO, heldFacets, shiftRetention } from './facets.ts'
 import { SessionManager } from './manager.ts'
 import type { SessionRemotes } from './remotes.ts'
 import type { SessionListPhase, SessionSearchResultItem, SessionProjectionSnapshot } from './manager.ts'
 import type { Session } from './session.ts'
+import type { SessionListEntry } from './lineage.ts'
 
 /** Session list row projected from the host list RPC plus live stream increments. */
 export interface SessionSummary {
@@ -33,6 +35,8 @@ export interface SessionSummary {
   parentId?: SessionId
   /** Coarse durable origin for navigation filtering; not a continuation capability. */
   origin?: 'subagent'
+  /** Format classification supplied by the Host list, when available. */
+  formatStatus?: SessionListEntry['formatStatus']
   /** Host running state for `ids` members; a display fallback for other rows. */
   running: boolean
   /** Local ownership counts; Host metadata refreshes cannot overwrite them. */
@@ -40,14 +44,18 @@ export interface SessionSummary {
   /**
    * New Session presentation and reuse eligibility, derived from the Host
    * summary, `sessionListMetadata`, and client acceptance/running observations.
-   * New Session reuses a blank one targeting the same workspace. Filtering
+   * New Session and Workspace reconnection may reuse a blank in the same workspace. Filtering
    * stays with the consumer: the store carries every row, while the Workspace
    * browser shows only the selected blank entry.
    */
   blank: boolean
   updatedAt: number
-  /** Current host-computed projection values retained by the object layer. */
-  projectionValues?: Readonly<Partial<SessionProjectionMap>>
+  /**
+   * The row's summary projection values retained by the object layer, never the
+   * full projection set. A connected Session's store may hold more values from
+   * its control/follow baseline; those are outside the list contract.
+   */
+  projectionValues?: Readonly<Partial<SessionProjectionSummaryValues>>
 }
 
 /** Catalog metadata and local source counts; catalog membership owns no Client generation. */
@@ -123,12 +131,24 @@ function displayTitleOf(title: string | undefined, cwd: string | undefined, id: 
 }
 
 /**
- * Increment a trailing fork number while preserving its half-width or
- * full-width parentheses; an unnumbered title starts with ` (1)`.
+ * Increment the fork number until the candidate is not taken.
  * @param title - source session's durable title.
+ * @param taken - durable titles of Host-listed sessions.
  * @returns the title assigned to the fork child.
  */
-function increasedForkTitle(title: string): string {
+function increasedForkTitle(title: string, taken: ReadonlySet<string>): string {
+  let next = incrementedTitle(title)
+  while (taken.has(next)) next = incrementedTitle(next)
+  return next
+}
+
+/**
+ * Increment a trailing fork number while preserving its half-width or
+ * full-width parentheses; an unnumbered title starts with ` (1)`.
+ * @param title - title to increment.
+ * @returns the title with the next fork number.
+ */
+function incrementedTitle(title: string): string {
   const ascii = /^(.*?)\((\d+)\)$/u.exec(title)
   if (ascii?.[1] !== undefined && ascii[2] !== undefined) {
     return `${ascii[1]}(${BigInt(ascii[2]) + 1n})`
@@ -140,13 +160,17 @@ function increasedForkTitle(title: string): string {
   return `${title} (1)`
 }
 
-/** Source labels are dictionary keys, including names also present on Object.prototype. */
-function freezeRetainedBy(counts: Partial<Record<SessionReferenceSource, number>>): SessionRetainInfo['retainedBy'] {
-  Object.setPrototypeOf(counts, null)
-  return Object.freeze(counts)
+/**
+ * Drop what no remaining reference keeps: the connection when none keeps it, otherwise the older window pages
+ * when no facet computes over them any longer.
+ */
+function releaseConnectionWork(session: Session, before: SessionRetainInfo, after: SessionRetainInfo): void {
+  if ((before.connectionCount ?? 0) > 0 && after.connectionCount === undefined) {
+    void session.disconnect()
+    return
+  }
+  if (before.retainedFacets !== undefined && after.retainedFacets === undefined) session.bufferOlder()
 }
-
-const EMPTY_RETAIN_INFO: SessionRetainInfo = Object.freeze({ referenceCount: 0, retainedBy: freezeRetainedBy({}) })
 
 interface ScopeRecord {
   fiber: Fiber
@@ -280,13 +304,14 @@ export class ClientSessions implements ISessions {
   }
 
   retain(target: SessionTarget, options: SessionRetainOptions): SessionReference {
-    const { source, signal } = options
+    const { source, signal, facets } = options
+    const connected = options.connection !== false
     signal?.throwIfAborted()
     if (this.closed) throw new Error('Session Controller is disposed')
     const id = this.manager.resolveTarget(target)
-    const reference = this.retainScope(id, source)
+    const reference = this.retainScope(id, source, heldFacets(facets), connected)
     try {
-      reference.attachOpening(this.manager.get(id).open(), signal)
+      reference.attachOpening(connected ? this.manager.get(id).open() : Promise.resolve(), signal)
       return reference
     } catch (error) {
       reference.release()
@@ -332,14 +357,14 @@ export class ClientSessions implements ISessions {
    * Resolve an already discovered direct-parent address without opening it.
    * Feature plugins use this to avoid Agent-bound RPCs in persisted child views.
    * @param id - possible addressed child id.
-   * @returns A retained or loaded-catalog address, without retaining a new selection or scope.
+   * @returns A retained, catalog-derived, or unknown-mode listed address, without retaining a new selection or scope.
    */
   subagentAddress(id: SessionId): SubagentAddress | undefined {
     return this.manager.subagentAddress(id)
   }
 
   /**
-   * Load all Session projections once per connection; retry an unsuccessful initial read.
+   * Read projections without starting migration; retry failed or migration-deferred reads.
    * @param sessionId - Session to inspect without opening its conversation.
    */
   refreshProjections(sessionId: SessionId): Promise<void> {
@@ -424,11 +449,16 @@ export class ClientSessions implements ISessions {
   /**
    * Create a Host Session and publish its catalog row before resolving.
    * Callers retain the returned identity before borrowing its binding.
-   * @param opts - target workspace or directory and an optional preallocated id.
-   * @returns the new session id.
+   * @param opts - target workspace or directory, an optional blank Session to reuse, and an optional Agent preset.
+   * @returns the created or reused session id.
    * @throws {SessionCreateError} with the requested id.
    */
-  async create(opts: { workspaceId?: WorkspaceId; cwd?: string; sessionId?: SessionId } = {}): Promise<SessionId> {
+  async create(opts: {
+    workspaceId?: WorkspaceId
+    cwd?: string
+    sessionId?: SessionId
+    agentPreset?: string
+  } = {}): Promise<SessionId> {
     const result = await this.manager.create(opts)
     if (!result.ok) throw new SessionCreateError(result.error, opts.sessionId)
     this.projectList()
@@ -443,7 +473,8 @@ export class ClientSessions implements ISessions {
    *   seq (a real event seq the caller already knows; a cut inside an open
    *   turn is balanced Host-side with synthetic closers, and omission selects
    *   the latest completed-turn prefix), and whether to increment an
-   *   inherited durable title before resolving.
+   *   inherited durable title, skipping numbers Host-listed titles already use,
+   *   before resolving, plus permission to start source migration.
    * @returns the child session id.
    * @throws {SessionForkError} with the source id.
    * @throws {Error} when a requested child-title rename fails after creation.
@@ -453,6 +484,7 @@ export class ClientSessions implements ISessions {
     atSeq?: number
     increaseTitle?: boolean
     onCreated?: (childId: SessionId) => void
+    allowMigration?: boolean
   }): Promise<SessionId> {
     const sourceTitle = opts.increaseTitle
       ? this.list.getSnapshot().byId[opts.sessionId]?.title
@@ -460,13 +492,16 @@ export class ClientSessions implements ISessions {
     const result = await this.manager.fork({
       sessionId: opts.sessionId,
       ...(opts.atSeq === undefined ? {} : { atSeq: SessionSeq(opts.atSeq) }),
+      ...(opts.allowMigration === undefined ? {} : { allowMigration: opts.allowMigration }),
     })
     if (!result.ok) throw new SessionForkError(result.error, opts.sessionId)
     this.projectList()
     const childId = result.value.sessionId
     opts.onCreated?.(childId)
     if (sourceTitle !== undefined) {
-      const renamed = await this.manager.rename(childId, increasedForkTitle(sourceTitle))
+      const list = this.list.getSnapshot()
+      const taken = new Set(list.ids.flatMap(id => list.byId[id]?.title ?? []))
+      const renamed = await this.manager.rename(childId, increasedForkTitle(sourceTitle, taken))
       if (!renamed.ok) throw new Error(`fork child rename failed: ${renamed.error.code}: ${renamed.error.message}`)
     }
     return childId
@@ -488,7 +523,7 @@ export class ClientSessions implements ISessions {
    */
   retainAgentScope(id: SessionId): SessionReference {
     if (this.closed) throw new Error('Session Controller is disposed')
-    return this.retainScope(id, 'gateway')
+    return this.retainScope(id, 'gateway', [], false)
   }
 
   /**
@@ -530,23 +565,25 @@ export class ClientSessions implements ISessions {
     return this.scopes.get(id)?.binding
   }
 
-  private retainScope(id: SessionId, source: SessionReferenceSource): ClientSessionReference {
+  private retainScope(
+    id: SessionId,
+    source: SessionReferenceSource,
+    facets: readonly SessionRetainFacet[],
+    connected: boolean,
+  ): ClientSessionReference {
     const record = this.scopes.get(id) ?? this.materializeScope(id)
-    const previous = record.retention
-    record.retention = Object.freeze({
-      referenceCount: previous.referenceCount + 1,
-      retainedBy: freezeRetainedBy({ ...previous.retainedBy, [source]: (previous.retainedBy[source] ?? 0) + 1 }),
-    })
+    const use = { source, facets, connected }
+    record.retention = shiftRetention(record.retention, use, 1)
     const reference = new ClientSessionReference(id, record, () => {
       if (!record.live) return
-      const count = record.retention.referenceCount - 1
-      const { [source]: sourceCount = 0, ...otherSources } = record.retention.retainedBy
-      const retainedBy = sourceCount > 1 ? { ...otherSources, [source]: sourceCount - 1 } : otherSources
-      record.retention = count === 0
-        ? EMPTY_RETAIN_INFO
-        : Object.freeze({ referenceCount: count, retainedBy: freezeRetainedBy(retainedBy) })
-      if (count === 0) this.retireScope(id, record)
-      else this.publishRetention(id)
+      const before = record.retention
+      record.retention = shiftRetention(before, use, -1)
+      if (record.retention.referenceCount === 0) {
+        this.retireScope(id, record)
+        return
+      }
+      this.publishRetention(id)
+      releaseConnectionWork(record.session, before, record.retention)
     })
     if (this.list.getSnapshot().byId[id] === undefined && this.manager.subagentAddress(id) !== undefined) {
       this.projectList()
@@ -622,6 +659,7 @@ export class ClientSessions implements ISessions {
         retainedBy: this.retentionSnapshot(entry.sessionId).retainedBy,
         blank: entry.blank,
         updatedAt: entry.updatedAt,
+        formatStatus: entry.formatStatus,
         ...(entry.projectionValues === undefined
           ? {}
           : { projectionValues: entry.projectionValues }),
@@ -633,6 +671,7 @@ export class ClientSessions implements ISessions {
     }
     for (const [parentId, projection] of Object.entries(projectionsBySession)) {
       for (const child of projection.values.subagentCatalog ?? []) {
+        if (child.mode === 'external') continue
         const childId = child.id
         const summary = byId[childId]
         const projectionValues = summary?.projectionValues ?? this.manager.projectionValues(childId)

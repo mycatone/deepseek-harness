@@ -1,9 +1,7 @@
 import { defineMod } from '@deepseek-ai/dsh-experimental-claude-code-mods'
 
 /**
- * A mod whose effects reach the Session log: it adds a context line after
- * each prompt and refuses a force push, so the recording shows what the
- * model sees from a `prompt.submit` rewrite and a `tool.call` deny.
+ * Scenario mod: adds prompt context and refuses forced Git pushes.
  */
 export default defineMod({
   name: 'snapshot-guard',

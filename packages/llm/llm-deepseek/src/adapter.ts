@@ -2,7 +2,7 @@
 
 import { attributionHeaders, LlmAdapter, LlmError } from '@deepseek-ai/dsh-llm'
 import type { GenerateOptions, ImageAttachmentAccessResolver, PreparedAdapterCall, StreamChunk } from '@deepseek-ai/dsh-llm'
-import type { DeepSeekLlmApiJson } from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
+import type { DeepSeekLlmApiExtensionRequest, DeepSeekLlmApiJson } from '@deepseek-ai/dsh-deepseek-llm-api-extensions'
 import { idleWatchdog, timeoutOf } from '@deepseek-ai/dsh-timeout'
 import { modelInfo } from './model-info.ts'
 import type { DeepSeekAdapterOptions, DeepSeekConnectionOptions as Connection } from './types.ts'
@@ -15,6 +15,8 @@ import { serialize } from './serialize.ts'
 import { parseSse } from './sse.ts'
 import { translate } from './translate.ts'
 import { providerError, providerErrorDetail } from './transport.ts'
+import type { ImageAttachmentRef } from '@deepseek-ai/dsh-attachment'
+import { resolveRequestImageTarget } from './request-pricing.ts'
 
 /** DeepSeek provider using Messages content and native thinking replay. */
 export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapter {
@@ -34,21 +36,38 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
   override async listModels(provider: string) {
     return this.dependencies.discoverModels?.(provider) ?? []
   }
-  override resolveModel(provider: string, model: string, _signal?: AbortSignal) {
-    return Promise.resolve(modelInfo(this.dependencies.options(), provider, model))
+  override async resolveModel(provider: string, model: string, signal?: AbortSignal) {
+    return modelInfo(await this.connection(signal), provider, model)
   }
   override imageRequestPricing(_provider: string, model: string) {
     return imagePricing(this.dependencies.options(), model, this.imageAccess)
   }
-  override prepareCall(provider: string, model: string, _signal?: AbortSignal): Promise<PreparedAdapterCall> {
-    const connection = this.dependencies.options()
-    return Promise.resolve({ model: modelInfo(connection, provider, model), stream: options => this.generate(options, connection) })
+  override imageRequestTarget(_provider: string, model: string, image: ImageAttachmentRef) {
+    const entry = this.dependencies.options().models.find(entry => entry.id === model)
+    if (entry === undefined) throw new LlmError(`DeepSeek model "${model}" has no declared image projection`, 'UNKNOWN_MODEL')
+    return resolveRequestImageTarget(entry, image)
   }
-  stream(options: GenerateOptions): AsyncIterable<StreamChunk> {
-    return this.generate(options, this.dependencies.options())
+  override async prepareCall(provider: string, model: string, signal?: AbortSignal): Promise<PreparedAdapterCall> {
+    const connection = await this.connection(signal)
+    this.dependencies.admit?.(connection, model)
+    return { model: modelInfo(connection, provider, model), stream: options => this.generate(options, connection) }
+  }
+  stream(options: GenerateOptions<string>): AsyncIterable<StreamChunk> {
+    const connection = this.dependencies.options()
+    this.dependencies.admit?.(connection, options.model)
+    return this.generate(options, connection)
   }
 
-  private async * generate(options: GenerateOptions, connection: C): AsyncGenerator<StreamChunk> {
+  private connection(signal: AbortSignal | undefined): Promise<C> {
+    return this.dependencies.connect?.(signal) ?? Promise.resolve(this.dependencies.options())
+  }
+
+  private missingCredential(connection: C, provider: string): LlmError {
+    return this.dependencies.missingCredential?.(connection, provider)
+      ?? new LlmError(`llm-deepseek: no credential for provider route "${provider}"`, 'MISSING_CREDENTIAL')
+  }
+
+  private async * generate(options: GenerateOptions<string>, connection: C): AsyncGenerator<StreamChunk> {
     const consumer = new AbortController()
     const signal = options.signal === undefined ? consumer.signal : AbortSignal.any([consumer.signal, options.signal])
     using watchdog = idleWatchdog(signal, connection.streamIdleTimeoutMs, 'MESSAGES_IDLE')
@@ -66,28 +85,33 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
       throw new LlmError('DeepSeek Messages transport failed', 'TRANSPORT', { cause: error })
     } finally {
       consumer.abort()
-      try { await iterator.return(undefined) } catch (_abortedRequestCleanup) {
-        // The request already settled; aborting its reader cannot replace that outcome.
-      }
+      // The abort above owns the socket teardown. A demand the deadline abandoned
+      // can stay pending forever, and this generator queues its own return behind
+      // that demand, so awaiting the drain would re-hang the settled outcome.
+      /* v8 ignore next -- the detached drain only rejects while unwinding an abandoned request. */
+      void iterator.return(undefined).catch(() => {})
     }
   }
 
   private async * request(
-    options: GenerateOptions, connection: C, signal: AbortSignal, activity: () => void,
+    options: GenerateOptions<string>, connection: C, signal: AbortSignal, activity: () => void,
   ): AsyncGenerator<StreamChunk> {
     signal.throwIfAborted()
     const { messages, versions } = await prepareImages(
       options.messages, connection, options.model, this.dependencies.resolveAttachments?.(), this.imageAccess, signal,
     )
-    const auth = await this.dependencies.resolveAuth(connection)
+    const auth = await this.dependencies.resolveAuth(connection, connection.baseURL)
+    if (auth === undefined) throw this.missingCredential(connection, options.provider)
+    // The request ends with its credential: a withdrawal closes the upstream response as the caller's cancellation does.
+    const live = auth.revoked === undefined ? signal : AbortSignal.any([signal, auth.revoked])
     try {
       const files = new RequestFiles(this.files, {
         baseURL: connection.baseURL, headers: auth.headers,
       },
-      connection.filePolicy, connection.filesApiTimeoutMs, signal, activity)
+      connection.filePolicy, live, activity)
       let inline = false
       while (true) {
-        signal.throwIfAborted()
+        live.throwIfAborted()
         files.beginAttempt()
         let fileIds: Awaited<ReturnType<typeof prepareFileIds>> | undefined
         if (!inline) {
@@ -103,14 +127,20 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
         const body = serialize(options, connection, history, versions, this.imageAccess, (reason) => {
           this.dependencies.onReplayDegrade?.({ provider: options.provider, model: options.model, reason })
         }, fileIds)
-        const extensions = await prepareRequestExtensions(body as Readonly<Record<string, DeepSeekLlmApiJson>>, {
-          signal,
+        const requestIdentity: Omit<DeepSeekLlmApiExtensionRequest, 'body'> = {
+          signal: live,
           ...options.sessionId === undefined ? {} : { sessionId: String(options.sessionId) },
           ...options.purpose === undefined ? {} : { purpose: options.purpose },
-        }, this.dependencies.prepareExtensions, (fields, error) => {
-          this.dependencies.onExtensionsOmitted?.({ provider: options.provider, model: options.model, fields, error })
-        })
-        signal.throwIfAborted()
+        }
+        const extensions = await prepareRequestExtensions(
+          body as Readonly<Record<string, DeepSeekLlmApiJson>>, requestIdentity,
+          this.dependencies.prepareExtensions, (fields, error) => {
+            this.dependencies.onExtensionsOmitted?.({ provider: options.provider, model: options.model, fields, error })
+          }, (error) => {
+            this.dependencies.onExtensionsUnaccepted?.({ provider: options.provider, model: options.model, error })
+          },
+        )
+        live.throwIfAborted()
         const betas = [
           ...fileIds !== undefined && fileIds.size > 0 ? [MESSAGES_FILES_BETA] : [],
           ...body.messages.some(message => message.content.some(block => block.type === 'tool_addition' || block.type === 'tool_removal'))
@@ -118,7 +148,7 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
             : [],
         ]
         const response = await fetch(`${messagesApiRoot(connection.baseURL)}/messages`, {
-          method: 'POST', signal, body: extensions.payload, redirect: 'error',
+          method: 'POST', signal: live, body: extensions.payload, redirect: 'error',
           headers: {
             ...attributionHeaders(),
             'content-type': 'application/json', 'accept': 'text/event-stream',
@@ -127,7 +157,7 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
             ...betas.length === 0 ? {} : { 'anthropic-beta': betas.join(',') },
             'x-deepseek-harness-user-id': this.dependencies.resolveUserId(),
             ...options.sessionId === undefined ? {} : { 'x-deepseek-harness-session-id': String(options.sessionId) },
-            ...options.purpose === 'compaction' ? { 'x-deepseek-harness-compact': '1' } : {},
+            ...requestIdentity.purpose === 'compaction' ? { 'x-deepseek-harness-compact': '1' } : {},
           },
         })
         if (!response.ok) {
@@ -140,7 +170,7 @@ export class DeepSeekAdapter<C extends Connection = Connection> extends LlmAdapt
           if (await files.retry(detail)) continue
           const failure = providerError(raw, response.status, response.headers)
           const message = files.errorMessage(response.status, failure.message, detail)
-          throw new LlmError(message, failure.code, { ...failure.failure, cause: new Error(text) })
+          throw LlmError.fromFailure({ ...failure.failure, message }, { cause: new Error(text) })
         }
         await extensions.accept()
         if (response.body === null) throw new LlmError('DeepSeek Messages returned no response body', 'EMPTY_RESPONSE')

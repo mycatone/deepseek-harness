@@ -26,7 +26,7 @@ it.each(['desktop', 'web'])('limits collection and its shutdown to the Desktop l
   onTestFinished(() => ctx.fiber.dispose())
   ctx.provide('profileContext', {
     name: profile, dir: '/profile', patchPath: '/profile/cordis.patch.yml', installAnchor: '/profile/package.json',
-    cwd: '/workspace', home: '/home', startedBundles: [], overlays: [], telemetryDisabledEnv: undefined,
+    cwd: '/workspace', home: '/home', startedBundles: [], overlayPaths: [], telemetryDisabledEnv: undefined,
   })
   const identity = vi.fn().mockResolvedValue(undefined)
   ctx.provide('deepseekAccount', { getDeviceIdentity: identity } as never)
@@ -72,7 +72,11 @@ it.each(['desktop', 'web'])('limits collection and its shutdown to the Desktop l
   }
   const emit = vi.spyOn(ctx.productTelemetry, 'emit')
   await analytics.report({ eventName: 'desktop_app_launch', timestamp: 1, attributes: {} })
-  expect(emit).toHaveBeenCalledWith(expect.objectContaining({ attributes: { app_version: 'test-version' } }))
+  expect(emit).toHaveBeenCalledOnce()
+  const attributes = emit.mock.calls[0]?.[0].attributes
+  expect(attributes?.app_version).toBe('test-version')
+  expect(typeof attributes?.os_name).toBe('string')
+  expect(typeof attributes?.memory_total_bytes).toBe('number')
   lifetime.abort()
   await policy.return?.()
   ctx.productTelemetry.emit({ eventName: 'desktop_upgrade_install_restart_click', body: 'upgrade', timestamp: Date.now() })

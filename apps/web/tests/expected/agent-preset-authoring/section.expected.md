@@ -1,10 +1,11 @@
 - dialog "设置":
+  - text: 设置
   - navigation:
-    - text: 设置
     - button "通用设置"
     - button "模型"
-    - button "内置插件"
+    - button "插件管理"
     - button "Agent 预设"
+    - button "远程连接"
   - button "打开配置文件"
   - button "关闭"
   - heading "Agent 预设" [level=2]
@@ -31,7 +32,7 @@
       - 'button "设为新任务默认: 极简模式"':
         - text: 极简模式 内置
         - code: minimal
-        - text: Agent 仅使用终端工具完成任务，适合测试和对比其基础表现。
+        - text: Agent 使用终端和图片读取工具，并支持上下文压缩，适合测试和对比其基础表现。
       - 'button "模式说明: 极简模式"': 模式说明
       - 'button "如何使用: 极简模式"': 如何使用
       - 'button "查看配置: 极简模式"': 查看配置

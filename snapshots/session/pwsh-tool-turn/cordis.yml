@@ -38,7 +38,7 @@
 - id: system-prompt
   name: '@deepseek-ai/dsh-system-prompt'
   config:
-    personaPrefix: You are a concise snapshot agent working in {{cwd}}.
+    personaPrefix: You are a concise snapshot agent.
 
 - id: goal
   name: '@deepseek-ai/dsh-goal'
@@ -66,6 +66,10 @@
 
 - id: tool-skill
   name: '@deepseek-ai/dsh-tool-skill'
+  disabled: true
+
+- id: upstream-skills
+  name: '@deepseek-ai/dsh-upstream-skills'
   disabled: true
 
 - id: tool-bash

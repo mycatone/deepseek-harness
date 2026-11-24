@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest'
 import { resolveSlotLabel } from '@deepseek-ai/dsh-client-ui-slots'
 import { SlotRegistry } from '@deepseek-ai/dsh-client-ui-renderer/client'
 import { LocaleRuntime } from '@deepseek-ai/dsh-client-locale/client'
-import { TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
+import { syncedConfig, TestRemote } from '@deepseek-ai/dsh-client-test-runtime'
 import { remoteDefaultResponses } from '@deepseek-ai/dsh-client-test-runtime/src/assembly/remote-default-responses.ts'
 import { ok, RemoteMock } from '@deepseek-ai/dsh-remote-mock'
 import { apply as settingsApply, inject as settingsInject } from '@deepseek-ai/dsh-client-ui-settings/client'
@@ -17,9 +17,9 @@ import {
 import { ModelsSection } from '../src/client/ModelsSection.tsx'
 import { DeepSeekOnboardingDialog } from '../src/client/DeepSeekOnboardingDialog.tsx'
 import { WelcomeNotice } from '../src/client/WelcomeNotice.tsx'
-import type { IndexInjection } from '@deepseek-ai/dsh-host-webserver'
+import { createSnapshotStore } from '@deepseek-ai/dsh-client-store'
+import type { ObservableSnapshot } from '@deepseek-ai/dsh-client-store'
 import * as hostPlugin from '../src/index.ts'
-import { ONBOARDING_CONFIG_GLOBAL } from '../src/onboarding-config.ts'
 
 afterEach(() => { vi.unstubAllGlobals() })
 
@@ -27,7 +27,7 @@ afterEach(() => { vi.unstubAllGlobals() })
 // so browser-language detection never runs and a fresh LocaleRuntime opens on
 // FALLBACK_LOCALE (en); bench stages zh explicitly on the locale instead.
 
-async function bench(isLoopback = true, mock = RemoteMock.create().load(remoteDefaultResponses), services: object = {}) {
+async function bench(mock = RemoteMock.create().load(remoteDefaultResponses), services: object = {}) {
   onTestFinished(() => { mock.assertNoUnmatched() })
   const ctx = new Context()
   await ctx.plugin(SlotRegistry).await()
@@ -49,8 +49,6 @@ async function bench(isLoopback = true, mock = RemoteMock.create().load(remoteDe
     settings: mock.remote.settings,
     session: { initializeDefaultModel: vi.fn(async () => ({ ok: true, value: undefined })) },
   })
-  // The fixed Host facts the settings provider reads its persistence from.
-  remote.$host = { home: undefined, isLoopback }
   await ctx.plugin({ inject: [...settingsInject], apply: settingsApply }).await()
   return { ctx, slots: ctx.get('slots') as SlotRegistry, locale, remote }
 }
@@ -68,41 +66,65 @@ function declare(slots: SlotRegistry): () => void {
   )
 }
 
+/** The official-DeepSeek step's injected automatic-onboarding source. */
+function automaticSource(slots: SlotRegistry): ObservableSnapshot<boolean> {
+  const entry = slots.entries('settings.onboarding').find(candidate => candidate.options.id === 'deepseek-official')!
+  return (entry.inject as () => { hooks: { automatic: ObservableSnapshot<boolean> } })().hooks.automatic
+}
+
 describe('ui-settings-models apply', () => {
-  it('keeps manual credential onboarding available when the native shell owns automatic onboarding', async () => {
+  it('declares a live credential-onboarding switch without Host behavior', () => {
+    expect(hostPlugin.Config({}).credentialOnboarding.get()).toBe(true)
+    expect(hostPlugin.Config({ credentialOnboarding: false }).credentialOnboarding.get()).toBe(false)
+    expect(hostPlugin.Config['~standard'].validate({ credentialOnboarding: 'false' })).toHaveProperty('issues')
+    hostPlugin.apply(new Context(), hostPlugin.Config({}))
+  })
+
+  it('keeps manual credential onboarding available when automatic onboarding is off', async () => {
     const { ctx, slots } = await bench()
     declare(slots)
     try {
-      const host = ctx.plugin(hostPlugin, { credentialOnboarding: false })
-      await host.await()
-      const rows: IndexInjection[] = []
-      ctx.emit('webserver/index-inject', rows)
-      expect(rows).toEqual([{ kind: 'global', name: ONBOARDING_CONFIG_GLOBAL, value: { credentialOnboarding: false } }])
-      for (const row of rows) if (row.kind === 'global') vi.stubGlobal(row.name, row.value)
-      const plugin = ctx.plugin({ inject: [...inject], apply })
+      const plugin = ctx.plugin({ inject: [...inject], apply }, syncedConfig({ credentialOnboarding: false }))
       await plugin.await()
       expect(slots.entries('settings.onboarding').map(entry => entry.options.id)).toEqual(['welcome-notice', 'deepseek-official'])
-      const onboarding = slots.entries('settings.onboarding').find(entry => entry.options.id === 'deepseek-official')!
-      expect((onboarding.inject as () => { automatic: boolean })().automatic).toBe(false)
+      expect(automaticSource(slots).getSnapshot()).toBe(false)
       expect(slots.entries('settings.section').map(entry => entry.options.id)).toEqual(['models'])
       await plugin.dispose()
       expect(slots.entries('settings.onboarding')).toEqual([])
-      await host.dispose()
-      const after: IndexInjection[] = []
-      ctx.emit('webserver/index-inject', after)
-      expect(after).toEqual([])
     } finally {
       await ctx.fiber.dispose()
     }
   })
 
-  it('defaults to browser onboarding and rejects malformed bootstrap options', async () => {
-    expect(hostPlugin.Config({})).toEqual({ credentialOnboarding: true })
-    expect(hostPlugin.Config['~standard'].validate({ credentialOnboarding: 'false' })).toHaveProperty('issues')
-    const { ctx } = await bench()
+  it('follows Host edits of the credential-onboarding switch and defaults it when absent', async () => {
+    const { ctx, slots } = await bench()
+    declare(slots)
     try {
-      vi.stubGlobal(ONBOARDING_CONFIG_GLOBAL, { credentialOnboarding: 'false' })
-      expect(() => { apply(ctx) }).toThrow()
+      const value = createSnapshotStore<boolean | undefined>(undefined)
+      const read = (): boolean | undefined => value.getSnapshot()
+      const ref = { get: read, getSnapshot: read, subscribe: (fn: () => void) => value.subscribe(fn) }
+      await ctx.plugin({ inject: [...inject], apply }, { credentialOnboarding: ref }).await()
+      const source = automaticSource(slots)
+      expect(source.getSnapshot()).toBe(true)
+      const listener = vi.fn()
+      const unsubscribe = source.subscribe(listener)
+      value.set(false)
+      expect(listener).toHaveBeenCalledTimes(1)
+      expect(source.getSnapshot()).toBe(false)
+      unsubscribe()
+    } finally {
+      await ctx.fiber.dispose()
+    }
+  })
+
+  it('leaves automatic onboarding and the welcome notice to the native shell', async () => {
+    vi.stubGlobal('dshDesktop', {})
+    const { ctx, slots } = await bench()
+    declare(slots)
+    try {
+      await ctx.plugin({ inject: [...inject], apply }, syncedConfig({ credentialOnboarding: true })).await()
+      expect(slots.entries('settings.onboarding').map(entry => entry.options.id)).toEqual(['deepseek-official'])
+      expect(automaticSource(slots).getSnapshot()).toBe(false)
     } finally {
       await ctx.fiber.dispose()
     }
@@ -118,7 +140,7 @@ describe('ui-settings-models apply', () => {
   it('registers the models nav entry for declarations before or after apply', async () => {
     const before = await bench()
     declare(before.slots)
-    await before.ctx.plugin({ inject: [...inject], apply }).await()
+    await before.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     const entry = before.slots.entries('settings.section')[0]!
     expect(entry.component).toBe(ModelsSection)
     expect(entry.options).toMatchObject({ id: 'models', order: 10 })
@@ -155,7 +177,7 @@ describe('ui-settings-models apply', () => {
     expect(typeof deepSeekInjected.operations.storeCredential).toBe('function')
 
     const after = await bench()
-    await after.ctx.plugin({ inject: [...inject], apply }).await()
+    await after.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     expect(after.slots.entries('settings.section')).toHaveLength(0)
     expect(after.slots.entries('settings.onboarding')).toHaveLength(0)
     declare(after.slots)
@@ -169,7 +191,7 @@ describe('ui-settings-models apply', () => {
   it('the label thunk follows the active locale without re-registration', async () => {
     const b = await bench()
     declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    await b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     b.locale.setLocale('en')
     expect(resolveSlotLabel(b.slots.entries('settings.section')[0]!.options.label)).toBe('Models')
     const injected = b.slots.entries('settings.section')[0]!.inject as unknown as () => import('../src/client/ModelsSection.tsx').ModelsSectionInjected
@@ -181,7 +203,7 @@ describe('ui-settings-models apply', () => {
 
   it('locale change while the slot is undeclared stays a no-op', async () => {
     const b = await bench()
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    await b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     b.locale.setLocale('en')
     expect(b.slots.entries('settings.section')).toHaveLength(0)
     b.locale.setLocale('zh')
@@ -190,7 +212,7 @@ describe('ui-settings-models apply', () => {
   it('re-registers after an HMR collapse re-declares the slot (stale disposer must not block)', async () => {
     const b = await bench()
     const redeclare = declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    await b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     expect(b.slots.entries('settings.section')).toHaveLength(1)
     // Declarer unload: the cascade removes our entry while our local
     // disposer variable goes stale.
@@ -210,7 +232,7 @@ describe('ui-settings-models apply', () => {
   it('accepts extension entries under the declared seats and cascades them with the declarer', async () => {
     const b = await bench()
     declare(b.slots)
-    const fiber = b.ctx.plugin({ inject: [...inject], apply })
+    const fiber = b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({}))
     await fiber.await()
     // A keyed card extension and a footer entry register through the ordinary
     // ledger once the section's registration declared the seats.
@@ -232,7 +254,7 @@ describe('ui-settings-models apply', () => {
   it('registers the zh/en nav dictionaries and disposes everything with the fiber', async () => {
     const b = await bench()
     declare(b.slots)
-    const fiber = b.ctx.plugin({ inject: [...inject], apply })
+    const fiber = b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({}))
     await fiber.await()
     expect(b.locale.bind('settings.models')('nav')).toBe('模型')
     await fiber.dispose()
@@ -242,29 +264,13 @@ describe('ui-settings-models apply', () => {
     expect(() => b.locale.register('settings.models', 'zh', {})).not.toThrow()
     expect(() => b.locale.register('settings.models', 'en', {})).not.toThrow()
   })
-
-  it('keeps remote-browser acknowledgement in process memory', async () => {
-    const b = await bench(false)
-    declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
-    const entry = b.slots.entries('settings.onboarding')
-      .find(candidate => candidate.options.id === 'welcome-notice')!
-    const injected = (
-      entry.inject as unknown as () => import('../src/client/WelcomeNotice.tsx').WelcomeNoticeInjected
-    )()
-
-    await injected.controller.load()
-    expect(injected.controller.store.getSnapshot()).toEqual({
-      status: 'ready', acknowledged: false, error: null,
-    })
-  })
 })
 
 describe('pushed invalidations', () => {
   it('ignores invalidations before the page ever loaded', async () => {
     const b = await bench()
     declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    await b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     // The fake wire face has no methods: a fetch attempt would throw.
     b.remote.emit('settings/document-updated', ['llm-pi-ai', 1])
     b.remote.emit('credentials/reference-updated', ['OPENAI_API_KEY'])
@@ -291,7 +297,7 @@ describe('pushed invalidations', () => {
   it('routes pushed credential invalidation into the shared onboarding join', async () => {
     const b = await bench()
     declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    await b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     const entry = b.slots.entries('settings.onboarding')
       .find(candidate => candidate.options.id === 'deepseek-official')!
     const injected = (
@@ -318,9 +324,9 @@ describe('pushed invalidations', () => {
     }
     const document = { writable: true, hasDocument: false, namespaces: [namespace] }
     mock.remote.settings.describe.mockResolvedValue(ok(document))
-    const b = await bench(true, mock)
+    const b = await bench(mock)
     declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    await b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     const entry = b.slots.entries('settings.onboarding')
       .find(candidate => candidate.options.id === 'welcome-notice')!
     const injected = (
@@ -348,9 +354,9 @@ describe('pushed invalidations', () => {
     const describe = mock.remote.settings.describe
     describe.mockResolvedValue(ok(document))
     const listProviders = vi.fn(() => Promise.resolve({ ok: true as const, value: [] }))
-    const b = await bench(true, mock, { listProviders })
+    const b = await bench(mock, { listProviders })
     declare(b.slots)
-    await b.ctx.plugin({ inject: [...inject], apply }).await()
+    await b.ctx.plugin({ inject: [...inject], apply }, syncedConfig({})).await()
     const entry = b.slots.entries('settings.section')
       .find(candidate => candidate.options.id === 'models')!
     const injected = (

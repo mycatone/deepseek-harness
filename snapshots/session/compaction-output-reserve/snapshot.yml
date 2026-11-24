@@ -3,9 +3,11 @@ scenario: compaction-output-reserve
 profile: headless
 composition: compaction-output-reserve
 recording: authored
+platform: posix
 header:
   class: compaction-output-reserve
   pin: true
+  promptChanges: 1
   systemPromptSource: compaction-recovery
   toolSchemasSource: compaction-recovery
   changes: 1
