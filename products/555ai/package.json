@@ -11,7 +11,8 @@
     "./package.json": "./package.json"
   },
   "main": "index.js",
-  "files": ["index.js", "client.js", "config.mjs", "config.d.mts", "product.json", "README.md"],
+  "files": ["index.js", "client.js", "config.mjs", "config.d.mts", "product.json", "assets", "README.md"],
+  "devDependencies": { "sharp": "0.35.5" },
   "dependencies": { "@deepseek-ai/schemastery": "workspace:~" },
   "peerDependencies": { "@deepseek-ai/cordis": "workspace:~" },
   "dsh": {

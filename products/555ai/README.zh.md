@@ -29,9 +29,14 @@ kind: "package-reference"
 node products/555ai/run.mjs check
 node products/555ai/run.mjs build
 node products/555ai/run.mjs web --no-open
+node products/555ai/run.mjs package win-x64
 ```
 
 编辑 `product.json`，或将 `node products/555ai/run.mjs rename "555AI"` 中的名称换成目标名称后执行，再重新构建。侧栏、账号提示、网页标题、PWA 标识、桌面文案与安装名称均来自产品配置。桌面数据使用稳定的 `desktop` 子目录，不随显示名称变化。
+
+将 `defaultModel` 设为 `{ "provider": "deepseek-account", "model": "YOUR_GATEWAY_MODEL_ID" }`，可选填 `reasoningEffort`；也可以执行 `node products/555ai/run.mjs model deepseek-account YOUR_GATEWAY_MODEL_ID`。模型 id 必须来自已部署网关的实际目录。`null` 表示沿用标准配置中的选择。修改这些部署默认值后重新构建；已有会话保留自己的模型选择。
+
+原创的 555 标记以 `assets/icon.svg` 为源文件。修改后执行 `node --import tsx/esm products/555ai/render-icons.ts`，生成应用、PWA、触屏与多尺寸托盘图片。Windows 无签名打包命令使用产品配置，并携带这些资源及品牌包；不发布更新，也不需要签名凭据。可信签名发行仍是独立的发布步骤。
 
 启动器在专用 home 中创建自己的 `cordis.patch.yml`，配置 hiAi 账号与推理来源，禁用官方品牌占位，并挂载 `@555ai/brand`。已有用户编写的同名文件不会被覆盖。品牌桌面构建也会在启动时初始化这份产品配置。
 
@@ -48,7 +53,7 @@ node products/555ai/run.mjs web --no-open
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- 图标尚未选定，`icons` 保持 `null`。侧栏与首页不显示官方标志；正式发行前仍需替换网页、任务栏、托盘与安装器图标。
+- 内置图标为原创的 555 标记。修改 `icons` 可选择另一个包含相同生成文件名的相对资源目录。
 - 真实登录、推理、充值及退款验收，需要部署兼容的 `hiai-dsh-module` 服务及反向代理路径。源码检查不代表这些部署结果已通过。
 - 桌面启动、签名、安装以及产品自有的更新分发，仍需在目标系统完成发行验收。保留原版权、MIT 许可和第三方声明。
 

@@ -194,6 +194,18 @@ it.each(['preflight:windows-signing', 'run build:official', 'run sign:primary-ru
   expect(writeFileSync).not.toHaveBeenCalled()
 })
 
+it('preserves explicit product branding throughout unsigned packaging', async () => {
+  const { run, stages } = supervisor()
+  const product = { ...environment, DSH_CLIENT_TITLE: '555AI', DSH_CLIENT_PRODUCT_CONFIG: '{"displayName":"555AI"}' }
+  await packageTarget(parseDesktopPackageInvocation(['win-x64', '--unsigned'], 'win32', 'x64'), product, run)
+  expect(stages[0]).toBe('run build')
+  for (const call of run.run.mock.calls) {
+    expect(call[3].env.DSH_CLIENT_TITLE).toBe('555AI')
+    expect(call[3].env.DSH_CLIENT_PRODUCT_CONFIG).toBe(product.DSH_CLIENT_PRODUCT_CONFIG)
+  }
+  expect(withWindowsSigningStage).not.toHaveBeenCalled()
+})
+
 it.each(['--unsigned', '--prepare-only'])('keeps %s hardware-free and creates no release record', async (mode) => {
   const { run, stages } = supervisor()
   await packageTarget(parseDesktopPackageInvocation(['win-x64', mode], 'win32', 'x64'), environment, run)

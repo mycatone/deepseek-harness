@@ -4,5 +4,6 @@
   "appId": "net.chainlife.ai555",
   "accountOrigin": "https://hiai.chainlife.net",
   "inferenceOrigin": "https://hiai.chainlife.net",
-  "icons": null
+  "icons": "assets",
+  "defaultModel": null
 }

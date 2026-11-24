@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const manifestUrl = new URL('./product.json', import.meta.url)
 const marker = '# Owned by the 555ai product launcher.'
@@ -22,6 +23,15 @@ export function validateProduct(value) {
     if (url.protocol !== 'https:' || url.username || url.password || url.pathname !== '/' || url.search || url.hash) {
       throw new Error(`Product ${key} must be an HTTPS origin without credentials or a path`)
     }
+  }
+  if (value.icons !== null && (typeof value.icons !== 'string' || !/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/u.test(value.icons))) {
+    throw new Error('Product icons must be a relative asset directory')
+  }
+  const model = value.defaultModel
+  if (model !== null && (typeof model !== 'object' || model === undefined
+    || ['provider', 'model'].some(key => typeof model[key] !== 'string' || !model[key].trim() || /[\r\n\x00-\x1f]/u.test(model[key]))
+    || (model.reasoningEffort !== undefined && (typeof model.reasoningEffort !== 'string' || !model.reasoningEffort.trim())))) {
+    throw new Error('Product defaultModel must be null or contain a provider and model id')
   }
   return value
 }
@@ -45,6 +55,7 @@ export function productEnvironment(product, base = process.env) {
     DSH_DESKTOP_PRODUCT_NAME: product.displayName,
     DSH_DESKTOP_ARTIFACT_PREFIX: product.slug,
     DSH_DESKTOP_APP_ID: product.appId,
+    DSH_DESKTOP_ICON_DIR: product.icons === null ? undefined : fileURLToPath(new URL(`./${product.icons}/`, manifestUrl)),
     DSH_HOME: home,
     DSH_DESKTOP_USER_DATA_DIR: join(home, 'desktop'),
   }
@@ -77,6 +88,13 @@ export function prepareProductHome(product, home) {
     "      name: '@555ai/brand'",
     '      config:',
     `        displayName: ${quote(product.displayName)}`,
+    ...(product.defaultModel === null ? [] : [
+      '- id: agent-default-model',
+      '  config:',
+      `    provider: ${quote(product.defaultModel.provider)}`,
+      `    model: ${quote(product.defaultModel.model)}`,
+      ...(product.defaultModel.reasoningEffort === undefined ? [] : [`    reasoningEffort: ${quote(product.defaultModel.reasoningEffort)}`]),
+    ]),
     '',
   ].join('\n')
   if (!existsSync(path) || readFileSync(path, 'utf8') !== content) writeFileSync(path, content)

@@ -1173,7 +1173,8 @@ async function main(): Promise<void> {
     updates.dispose()
   })
 
-  const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
+  const applicationIconPath = development ? (process.env.DSH_DESKTOP_ICON_DIR === undefined
+    ? join(app.getAppPath(), 'resources', 'icon-windows.png') : join(process.env.DSH_DESKTOP_ICON_DIR, 'icon.png'))
     : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
     applicationName: process.env.DSH_CLIENT_TITLE ?? 'DeepSeek Harness',
@@ -1261,7 +1262,8 @@ async function main(): Promise<void> {
     tray?.relabel()
   }
   refreshApplicationMenu()
-  const trayIconPath = development ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.resourcesPath, 'tray.ico')
+  const trayIconPath = development ? (process.env.DSH_DESKTOP_ICON_DIR === undefined
+    ? join(app.getAppPath(), 'resources', 'tray-windows.ico') : join(process.env.DSH_DESKTOP_ICON_DIR, 'tray.ico')) : join(process.resourcesPath, 'tray.ico')
   if (process.platform === 'win32') {
     // The tray is the way back to a hidden window; without it, relaunching the application still focuses it.
     try {

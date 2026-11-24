@@ -1,4 +1,4 @@
-/** Independent brand occupants; artwork is deliberately pending the user's icon selection. */
+/** Independent product name and the original 555 monogram. */
 window.__ModuleLoader__.load({
   id: '@555ai/brand',
   factory(require) {
@@ -8,7 +8,7 @@ window.__ModuleLoader__.load({
       return React.createElement('span', { 'data-product-name': '', title: name, style: { fontWeight: 500,
         display: 'block', minWidth: 0, maxWidth: '100%', overflow: 'hidden', whiteSpace: 'nowrap', textOverflow: 'ellipsis' } }, name ?? '')
     }
-    function PendingMark() { return null }
+    function Mark() { return React.createElement('img', { src: '/favicon.svg', alt: '', width: 28, height: 28 }) }
     return {
       inject: ['slots'],
       apply(ctx, config) {
@@ -17,7 +17,7 @@ window.__ModuleLoader__.load({
           inject: () => ({ hooks: { displayName: config.displayName } }),
         }, Name))
         for (const name of ['sidebar.brand.mark', 'conversation.hero.brand.mark']) {
-          ctx.slots.inject(name, () => ctx.slots.register({ name }, PendingMark))
+          ctx.slots.inject(name, () => ctx.slots.register({ name }, Mark))
         }
       },
     }

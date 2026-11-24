@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { copyFile, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
@@ -39,6 +39,14 @@ function clientDocumentTitle(): Plugin {
       const path = resolve(outputDirectory, 'manifest.webmanifest')
       const manifest = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
       await writeFile(path, `${JSON.stringify({ ...manifest, name: configured, short_name: configured }, null, 2)}\n`)
+      const icons = process.env.DSH_DESKTOP_ICON_DIR
+      if (icons !== undefined) {
+        for (const [source, destination] of [
+          ['icon.svg', 'favicon.svg'], ['icon.svg', 'favicon-dark.svg'],
+          ['icon-192.png', 'icon-192.png'], ['icon-512.png', 'icon-512.png'],
+          ['icon-512.png', 'icon-maskable-512.png'], ['apple-touch-icon.png', 'apple-touch-icon.png'],
+        ]) await copyFile(resolve(icons, source), resolve(outputDirectory, destination))
+      }
     },
   }
 }

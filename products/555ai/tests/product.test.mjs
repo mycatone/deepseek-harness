@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import { mkdtempSync, readFileSync, writeFileSync, unlinkSync, rmdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { prepareProductHome, productEnvironment, readProductConfig } from '../config.mjs'
+import { prepareProductHome, productEnvironment, readProductConfig, validateProduct } from '../config.mjs'
 
 test('renaming preserves the account data directory and application identity', () => {
   const original = readProductConfig()
@@ -39,4 +39,26 @@ test('a pre-existing user patch survives initialization unchanged', t => {
   writeFileSync(path, '# My existing configuration\n')
   assert.throws(() => prepareProductHome(readProductConfig(), home), /Existing user patch preserved/)
   assert.equal(readFileSync(path, 'utf8'), '# My existing configuration\n')
+})
+
+test('an optional default model reaches the standard Agent model configuration literally', t => {
+  const home = mkdtempSync(join(tmpdir(), '555ai-model-'))
+  const path = join(home, 'cordis.patch.yml')
+  t.after(() => { unlinkSync(path); rmdirSync(home) })
+  const product = readProductConfig()
+  prepareProductHome({ ...product, defaultModel: { provider: 'deepseek-account', model: 'vendor/model-$&', reasoningEffort: 'high' } }, home)
+  const source = readFileSync(path, 'utf8')
+  assert.ok(source.includes('- id: agent-default-model'))
+  assert.ok(source.includes('model: "vendor/model-$&"'))
+  assert.ok(source.includes('reasoningEffort: "high"'))
+  prepareProductHome({ ...product, defaultModel: null }, home)
+  assert.ok(!readFileSync(path, 'utf8').includes('- id: agent-default-model'))
+})
+
+test('invalid model choices and icon directory traversal fail before profile writes', () => {
+  const product = readProductConfig()
+  for (const defaultModel of [{ provider: '', model: 'm' }, { provider: 'p', model: '\nm' }, { provider: 'p' }]) {
+    assert.throws(() => validateProduct({ ...product, defaultModel }), /defaultModel/)
+  }
+  assert.throws(() => validateProduct({ ...product, icons: '../elsewhere' }), /icons/)
 })

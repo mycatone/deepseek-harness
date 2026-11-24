@@ -5,7 +5,8 @@ export interface ProductConfig {
   appId: string
   accountOrigin: string
   inferenceOrigin: string
-  icons: null
+  icons: string | null
+  defaultModel: { provider: string; model: string; reasoningEffort?: string } | null
 }
 export function validateProduct(value: unknown): ProductConfig
 export function readProductConfig(path?: string | URL): ProductConfig

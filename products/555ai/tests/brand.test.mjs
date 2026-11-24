@@ -16,5 +16,7 @@ test('brand names remain literal React text and react to the injected name', () 
   for (const name of ['555AI', 'Next $& <AI>']) {
     assert.equal(brand.component({ useDisplayName: select => select(name) }).text, name)
   }
-  assert.equal(registrations.find(row => row.slot.name === 'conversation.hero.brand.mark').component(), null)
+  const mark = registrations.find(row => row.slot.name === 'conversation.hero.brand.mark').component()
+  assert.equal(mark.tag, 'img')
+  assert.equal(mark.props.src, '/favicon.svg')
 })
