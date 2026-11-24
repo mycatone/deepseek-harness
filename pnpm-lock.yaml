@@ -321,6 +321,9 @@ importers:
 
   apps/cli:
     dependencies:
+      '@555ai/brand':
+        specifier: workspace:*
+        version: link:../../products/555ai
       '@deepseek-ai/cordis':
         specifier: workspace:~
         version: link:../../vendor/cordis
@@ -788,6 +791,9 @@ importers:
         specifier: ^8.21.3
         version: 8.21.3
     devDependencies:
+      '@555ai/brand':
+        specifier: workspace:*
+        version: link:../../products/555ai
       '@deepseek-ai/dsh-app-boot':
         specifier: workspace:*
         version: link:../../packages/boot/app-boot
@@ -2587,9 +2593,6 @@ importers:
 
   packages/bundle/base:
     dependencies:
-      '@deepseek-ai/dsh-max-token-continuation':
-        specifier: workspace:*
-        version: link:../../guard/max-token-continuation
       '@deepseek-ai/cordis-plugin-timer':
         specifier: workspace:~
         version: link:../../../vendor/timer
@@ -2698,6 +2701,9 @@ importers:
       '@deepseek-ai/dsh-llm-retry':
         specifier: workspace:*
         version: link:../../llm/llm-retry
+      '@deepseek-ai/dsh-max-token-continuation':
+        specifier: workspace:*
+        version: link:../../guard/max-token-continuation
       '@deepseek-ai/dsh-mcp-resources':
         specifier: workspace:*
         version: link:../../mcp/mcp-resources
@@ -20586,6 +20592,15 @@ importers:
       '@deepseek-ai/dsh-typert-protocol':
         specifier: workspace:*
         version: link:../../typert/protocol
+
+  products/555ai:
+    dependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:~
+        version: link:../../vendor/cordis
+      '@deepseek-ai/schemastery':
+        specifier: link:../../vendor/schemastery
+        version: link:../../vendor/schemastery
 
   python/sdk-runtime:
     dependencies:

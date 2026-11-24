@@ -1,0 +1,26 @@
+{
+  "name": "@555ai/brand",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./config": { "types": "./config.d.mts", "default": "./config.mjs" },
+    "./package.json": "./package.json"
+  },
+  "main": "index.js",
+  "files": ["index.js", "client.js", "config.mjs", "config.d.mts", "product.json", "README.md"],
+  "dependencies": { "@deepseek-ai/schemastery": "workspace:~" },
+  "peerDependencies": { "@deepseek-ai/cordis": "workspace:~" },
+  "dsh": {
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-sidebar",
+        "@deepseek-ai/dsh-client-ui-conversation"
+      ]
+    }
+  }
+}

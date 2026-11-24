@@ -8,6 +8,8 @@ import { isDesktopUpdateChannel } from './settings-file.ts'
 import type { ProductEventMap, ProductEvent } from '@deepseek-ai/dsh-client-product-analytics/types'
 import { WINDOWS_TITLEBAR_HEIGHT } from './windows-layout.ts'
 import { access, readFile, writeFile } from 'node:fs/promises'
+import { mkdirSync } from 'node:fs'
+import { prepareProductHome, validateProduct } from '@555ai/brand/config'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -71,6 +73,16 @@ import { DesktopUpdateOverlays } from './update-overlay.ts'
 import { DesktopQuitConfirmation } from './quit-confirmation.ts'
 import { DesktopTray } from './tray.ts'
 import { DesktopBackgroundNotice } from './background-notice.ts'
+
+const compiledProduct = process.env.DSH_CLIENT_PRODUCT_CONFIG
+if (compiledProduct !== undefined) {
+  const product = validateProduct(JSON.parse(compiledProduct))
+  process.env.DSH_HOME ??= join(app.getPath('home'), `.${product.slug}`)
+  prepareProductHome(product, process.env.DSH_HOME)
+  const userData = process.env.DSH_DESKTOP_USER_DATA_DIR ?? join(process.env.DSH_HOME, 'desktop')
+  mkdirSync(userData, { recursive: true })
+  app.setPath('userData', userData)
+}
 
 let focusPrimaryWindow = (): void => {}
 let stopForRecovery = async (): Promise<void> => { await stopOperationReports() }
@@ -1164,7 +1176,7 @@ async function main(): Promise<void> {
   const applicationIconPath = development ? join(app.getAppPath(), 'resources', 'icon-windows.png')
     : join(process.resourcesPath, 'icon.png')
   app.setAboutPanelOptions({
-    applicationName: 'DeepSeek Harness',
+    applicationName: process.env.DSH_CLIENT_TITLE ?? 'DeepSeek Harness',
     applicationVersion: app.getVersion(),
     // The release has no separate build number; omit Electron's bundle version.
     version: '',

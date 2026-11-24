@@ -1555,6 +1555,14 @@ export const pt = {
 
 const dictionaries = { en, zh, ja, es, fr, de, ru, pt }
 
+/** Apply the configured product name while retaining each locale's surrounding wording. */
+function productMessages(messages: DesktopMessages): DesktopMessages {
+  const name = process.env.DSH_CLIENT_TITLE ?? 'DeepSeek Harness'
+  if (name === 'DeepSeek Harness') return messages
+  return Object.fromEntries(Object.entries(messages).map(([key, value]) =>
+    [key, value.replaceAll('DeepSeek Harness', () => name)])) as DesktopMessages
+}
+
 /** Locale payload exposed to the Desktop-owned renderer. */
 export interface DesktopLocale {
   readonly id: 'en' | 'zh-CN' | 'ja' | 'es' | 'fr' | 'de' | 'ru' | 'pt'
@@ -1566,9 +1574,9 @@ export function resolveDesktopLocale(locale: string): DesktopLocale {
   const primary = locale.toLowerCase().split('-')[0]
   if (primary !== undefined && Object.hasOwn(dictionaries, primary)) {
     const id = primary as keyof typeof dictionaries
-    return { id: id === 'zh' ? 'zh-CN' : id, messages: dictionaries[id] }
+    return { id: id === 'zh' ? 'zh-CN' : id, messages: productMessages(dictionaries[id]) }
   }
-  return { id: 'en', messages: en }
+  return { id: 'en', messages: productMessages(en) }
 }
 
 /**

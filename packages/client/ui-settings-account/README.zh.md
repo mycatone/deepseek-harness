@@ -17,6 +17,8 @@ kind: "package-reference"
 
 登录弹窗仅对 `no-response` 失败提示检查网络。HTTP、业务、响应校验、存储和账号状态流失败仍显示通用重试提示。
 
+私有构建可用 `DSH_CLIENT_TITLE` 指定产品名称、用 `DSH_CLIENT_ACCOUNT_NAME` 指定账号提供方名称，应用于账号及引导文案。其余本地化文字与具名占位符保持不变；修改这些名称后需要重新构建客户端。
+
 ## 目录
 
 - [使用此包](#use-this-package)

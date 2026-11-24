@@ -21,11 +21,24 @@ function escapeHtmlText(value: string): string {
 
 /** Project the public build title into the initial HTML document. */
 function clientDocumentTitle(): Plugin {
-  const title = escapeHtmlText(process.env.DSH_CLIENT_TITLE ?? DEFAULT_CLIENT_TITLE)
+  const configured = process.env.DSH_CLIENT_TITLE
+  const title = escapeHtmlText(configured ?? DEFAULT_CLIENT_TITLE)
+  let outputDirectory = ''
+  let written = false
   return {
     name: 'dsh-client-document-title',
+    configResolved(config) { outputDirectory = resolve(config.root, config.build.outDir) },
     transformIndexHtml(html) {
-      return html.replace('<title>DSH Local Build</title>', `<title>${title}</title>`)
+      const titled = html.replace('<title>DSH Local Build</title>', () => `<title>${title}</title>`)
+      return configured === undefined ? titled : titled.replace('name="apple-mobile-web-app-title" content="DSH"',
+        () => `name="apple-mobile-web-app-title" content="${title.replaceAll('"', '&quot;')}"`)
+    },
+    writeBundle() { written = true },
+    async closeBundle() {
+      if (!written || configured === undefined) return
+      const path = resolve(outputDirectory, 'manifest.webmanifest')
+      const manifest = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
+      await writeFile(path, `${JSON.stringify({ ...manifest, name: configured, short_name: configured }, null, 2)}\n`)
     },
   }
 }

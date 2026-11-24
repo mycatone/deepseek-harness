@@ -29,8 +29,12 @@ const clientEnvironment = resolveClientBuildEnvironment(process.env.DSH_CLIENT_V
 const clientVersion = clientEnvironment.DSH_CLIENT_VERSION
 if (clientVersion === undefined) throw new Error('desktop build: the client environment carries no DSH_CLIENT_VERSION')
 
-/** Inline the one public build value the Node entry reads; every other variable stays a runtime lookup. */
-const clientVersionDefine = { 'process.env.DSH_CLIENT_VERSION': JSON.stringify(clientVersion) }
+/** Inline the version and product identity shared by the desktop entry and preloads. */
+const clientVersionDefine = {
+  'process.env.DSH_CLIENT_VERSION': JSON.stringify(clientVersion),
+  'process.env.DSH_CLIENT_TITLE': JSON.stringify(clientEnvironment.DSH_CLIENT_TITLE ?? 'DeepSeek Harness'),
+  'process.env.DSH_CLIENT_PRODUCT_CONFIG': JSON.stringify(clientEnvironment.DSH_CLIENT_PRODUCT_CONFIG) ?? 'undefined',
+}
 
 export default defineConfig([
   {
@@ -98,6 +102,7 @@ export default defineConfig([
     deps: { neverBundle: ['electron'] },
   },
   ...(['preload-app', 'preload-welcome', 'preload-platform-account', 'preload-mandatory', 'preload-update-dialog'] as const).map(name => ({
+    define: clientVersionDefine,
     // Sandboxed Electron preloads run as CommonJS even though the application package is ESM.
     entry: { [name]: `lib/types/${name}.js` },
     plugins: [packagedImportsPlugin(preloadImports)],
