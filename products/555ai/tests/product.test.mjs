@@ -15,6 +15,8 @@ test('renaming preserves the account data directory and application identity', (
   assert.equal(after.DSH_DESKTOP_USER_DATA_DIR, before.DSH_DESKTOP_USER_DATA_DIR)
   assert.equal(after.DSH_CLIENT_TITLE, renamed.displayName)
   assert.equal(after.DSH_CLIENT_ACCOUNT_NAME, renamed.displayName)
+  assert.ok(before.DSH_DESKTOP_WORDMARK_FILE.endsWith('wordmark.svg'))
+  assert.equal(after.DSH_DESKTOP_WORDMARK_FILE, undefined)
   assert.equal(JSON.parse(after.DSH_CLIENT_PRODUCT_CONFIG).displayName, renamed.displayName)
 })
 

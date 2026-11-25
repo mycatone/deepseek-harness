@@ -102,6 +102,25 @@ body {
   -webkit-user-drag: none;
 }
 
+.product-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  font-size: 26px;
+  font-weight: 500;
+  line-height: 40px;
+}
+
+.product-brand img { flex: none; }
+.product-brand span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.product-wordmark { width: 150px; height: 40px; object-fit: contain; }
+@media (prefers-color-scheme: dark) {
+  .product-wordmark { filter: brightness(0) invert(1); }
+}
+
 .tagline {
   margin: 0;
   color: var(--dsw-alias-label-secondary);
@@ -109,7 +128,7 @@ body {
   font-weight: 300;
   line-height: 40px;
   text-align: center;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .tagline h1,
@@ -315,7 +334,7 @@ body {
 
 .auth-expired { gap: 12px; padding-top: 28px; }
 #auth-status { font-size: 20px; line-height: 24px; font-weight: 400; letter-spacing: normal; }
-.auth-expired p { line-height: 16px; letter-spacing: normal; }
+.auth-expired p { line-height: 22px; letter-spacing: normal; }
 
 
 .auth-waiting { gap: 12px; padding-top: 28px; }

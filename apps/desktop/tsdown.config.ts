@@ -1,6 +1,7 @@
 import { defineConfig } from 'tsdown'
 import { build } from 'vite'
 import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { repositoryClientBuildEnvironment, resolveClientBuildEnvironment } from '../../scripts/client-build-environment.ts'
@@ -34,6 +35,8 @@ const clientVersionDefine = {
   'process.env.DSH_CLIENT_VERSION': JSON.stringify(clientVersion),
   'process.env.DSH_CLIENT_TITLE': JSON.stringify(clientEnvironment.DSH_CLIENT_TITLE ?? 'DeepSeek Harness'),
   'process.env.DSH_CLIENT_PRODUCT_CONFIG': JSON.stringify(clientEnvironment.DSH_CLIENT_PRODUCT_CONFIG) ?? 'undefined',
+  'process.env.DSH_DESKTOP_ICON_DIR': JSON.stringify(process.env.DSH_DESKTOP_ICON_DIR) ?? 'undefined',
+  'process.env.DSH_DESKTOP_WORDMARK_FILE': JSON.stringify(process.env.DSH_DESKTOP_WORDMARK_FILE) ?? 'undefined',
 }
 
 export default defineConfig([
@@ -67,6 +70,14 @@ export default defineConfig([
         plugins: [{
           name: 'desktop-shell-assets',
           async generateBundle() {
+            if (process.env.DSH_DESKTOP_ICON_DIR !== undefined) {
+              this.emitFile({ type: 'asset', fileName: 'product-icon.png',
+                source: await readFile(join(process.env.DSH_DESKTOP_ICON_DIR, 'icon.png')) })
+              if (process.env.DSH_DESKTOP_WORDMARK_FILE !== undefined) {
+                this.emitFile({ type: 'asset', fileName: 'product-wordmark.svg',
+                  source: await readFile(process.env.DSH_DESKTOP_WORDMARK_FILE) })
+              }
+            }
             for (const name of ['design-platform.css', 'brand-font.css', 'montserrat-regular.woff2', 'montserrat-light.woff2', 'montserrat-medium.woff2', 'Montserrat-OFL.txt']) {
               this.emitFile({
                 type: 'asset',

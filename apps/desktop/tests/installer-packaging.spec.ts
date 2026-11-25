@@ -18,6 +18,17 @@ vi.mock('node:fs/promises', async importOriginal => ({
 }))
 
 describe('installer preparation preserves application dependencies', () => {
+  it('passes product artwork to native bitmap preparation without changing the upstream asset directory', async () => {
+    execute.mockClear()
+    const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
+    const config = createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'net.example.ai555', DSH_DESKTOP_UNSIGNED: '1',
+      DSH_DESKTOP_PRODUCT_NAME: '555AI', DSH_DESKTOP_INSTALLER_ASSETS: 'D:\\555AI artwork' }, 'win32', 'x64')
+    await config.beforeBuild()
+    expect(execute).toHaveBeenCalledWith('powershell.exe', expect.arrayContaining(['-BrandDirectory', 'D:\\555AI artwork']), expect.any(Object))
+    expect(readFileSync(new URL('../scripts/prepare-windows-installer.ps1', import.meta.url), 'utf8'))
+      .toContain('Join-Path $BrandDirectory "$asset.png"')
+  })
+
   it.each(['win32', 'darwin'] as const)('rejects a missing production policy before signing on %s', async (platform) => {
     const { createElectronBuilderConfig } = await import('../scripts/electron-builder-config.mjs')
     expect(() => createElectronBuilderConfig({ DSH_DESKTOP_APP_ID: 'com.example.installer',

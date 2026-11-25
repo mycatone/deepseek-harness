@@ -55,6 +55,10 @@ export interface WelcomeOperations {
 
 /** The renderer receives localized copy, login operations, and safe account snapshots. */
 export type WelcomeApi = DesktopLocale & WelcomeOperations & {
+  /** Product artwork emitted beside the welcome bundle; absent for the upstream identity. */
+  readonly brandIcon?: string
+  /** Optional wordmark for this product name; renamed products use accessible live text. */
+  readonly brandWordmark?: string
   /** @param listener - safe account snapshot recipient. @returns subscription disposer. */
   onAccountState(listener: (state: AccountView) => void): () => void
 }

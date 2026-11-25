@@ -45,6 +45,7 @@ export function readProductConfig(path = manifestUrl) {
 export function productEnvironment(product, base = process.env) {
   validateProduct(product)
   const home = resolve(base.AI555_HOME ?? join(homedir(), `.${product.slug}`))
+  const icons = product.icons === null ? undefined : fileURLToPath(new URL(`./${product.icons}/`, manifestUrl))
   return {
     ...base,
     DSH_BUILD_CLIENT_PROFILE: undefined,
@@ -55,7 +56,8 @@ export function productEnvironment(product, base = process.env) {
     DSH_DESKTOP_PRODUCT_NAME: product.displayName,
     DSH_DESKTOP_ARTIFACT_PREFIX: product.slug,
     DSH_DESKTOP_APP_ID: product.appId,
-    DSH_DESKTOP_ICON_DIR: product.icons === null ? undefined : fileURLToPath(new URL(`./${product.icons}/`, manifestUrl)),
+    DSH_DESKTOP_ICON_DIR: icons,
+    DSH_DESKTOP_WORDMARK_FILE: icons === undefined || product.displayName !== '555AI' ? undefined : join(icons, 'wordmark.svg'),
     DSH_HOME: home,
     DSH_DESKTOP_USER_DATA_DIR: join(home, 'desktop'),
   }

@@ -38,6 +38,11 @@ if (command === 'rename' || command === 'model') {
     env.DSH_PACKAGING_PRESET = 'test'
     env.DSH_PACKAGING_CONFIG_DIR = join(root, 'products', '555ai', 'packaging')
     if (!args.includes('--unsigned')) args.push('--unsigned')
+    if (env.DSH_DESKTOP_ICON_DIR !== undefined && !args.includes('--check')) {
+      const { renderDesktopInstallerAssets } = await import('./desktop-brand.mjs')
+      env.DSH_DESKTOP_INSTALLER_ASSETS = join(root, '.dsh-build', '555ai-installer-assets')
+      await renderDesktopInstallerAssets(product, env.DSH_DESKTOP_ICON_DIR, env.DSH_DESKTOP_INSTALLER_ASSETS)
+    }
   }
   prepareProductHome(product, env.DSH_HOME)
   if (command !== 'build' && !(command === 'package' && args.includes('--check'))) {

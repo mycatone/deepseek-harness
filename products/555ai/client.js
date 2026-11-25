@@ -1,4 +1,4 @@
-/** Independent product name and the original 555 monogram. */
+/** Independent product name and the dog mascot. */
 window.__ModuleLoader__.load({
   id: '@555ai/brand',
   factory(require) {

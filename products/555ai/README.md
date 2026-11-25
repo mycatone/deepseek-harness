@@ -36,7 +36,11 @@ Edit `product.json` or run `node products/555ai/run.mjs rename "555AI"` with the
 
 Set `defaultModel` to `{ "provider": "deepseek-account", "model": "YOUR_GATEWAY_MODEL_ID" }`, optionally adding `reasoningEffort`, or run `node products/555ai/run.mjs model deepseek-account YOUR_GATEWAY_MODEL_ID`. Use an id actually advertised by the deployed gateway. A `null` value leaves the standard profile selection in place. Rebuild after changing these deployment defaults; existing sessions retain their own selections.
 
-The original SVG in `assets/icon.svg` owns the 555 monogram. Run `node --import tsx/esm products/555ai/render-icons.ts` after editing it to regenerate application, PWA, touch and multi-size tray images. The unsigned Windows packaging command uses the product preset and includes these assets and the brand package. It does not publish updates or require signing credentials; trusted signed distribution remains a separate release step.
+The monochrome mascot in `assets/dog-mark.png` is based on the supplied dog illustration; `assets/wordmark.svg` supplies the redesigned 555AI lettering. Run `node --import tsx/esm products/555ai/render-icons.ts --preview` to inspect one 512px icon, then omit `--preview` to regenerate application, PWA, touch and multi-size tray images plus the SVG wrapper. The unsigned Windows packaging command includes these assets and the brand package. It does not publish updates or require signing credentials; trusted signed distribution remains a separate release step.
+
+The desktop welcome page combines the product icon with the configured display name. Packaging generates matching light, dark, 1x and 2x installer artwork and the uninstaller sidebar in `.dsh-build/555ai-installer-assets`; upstream artwork is preserved. Renaming and rebuilding also updates these pages.
+
+Account sign-in opens the browser only after `POST /auth-api/v0/dsh/auth_init` returns valid authorization data. An HTTP 500 here prevents the account/password form from opening. The desktop reports service, protocol or credential-storage failures with a localized next action. Deployment operators should inspect the hosting service logs, existing DSH configuration in the admin configuration center, Redis access and reverse-proxy routes, then rerun the backend `scripts/dsh-smoke.mjs` check. This client change does not establish production login acceptance.
 
 The launcher creates its own `cordis.patch.yml` in the dedicated home, configures hiAi account and inference origins, disables official brand occupants, and mounts `@555ai/brand`. It refuses to overwrite an existing user-authored patch. Branded desktop builds also initialize that product-owned patch at startup.
 
@@ -53,7 +57,7 @@ None; this package supplies product identity and deployment configuration, not m
 
 <a id="known-limitations-and-deferred-work"></a>
 
-- The included artwork is an original 555 monogram. Changing `icons` selects another relative asset directory with the same generated filenames.
+- The included artwork uses the dog mascot and a separate 555AI wordmark. Changing `icons` selects another relative asset directory with the same generated filenames and `wordmark.svg`.
 - Live login, inference, recharge, and refund acceptance require deployment of the compatible `hiai-dsh-module` service and reverse-proxy routes. Source checks do not establish those deployment results.
 - Desktop launch, signing, installation, and the product's own update distribution require target-system release qualification. Keep the original copyright, MIT license, and third-party notices.
 

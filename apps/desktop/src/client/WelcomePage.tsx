@@ -170,13 +170,21 @@ export function Welcome({ api }: { api: WelcomeApi }) {
   const title = phase === 'initializing' ? m.welcomeAuthStarting
     : waiting ? m.welcomeAuthWaiting : phase === 'expired' ? m.welcomeAuthExpired
       : phase === 'failed' ? m.welcomeAuthFailed : m.welcomeAuthExchanging
+  const description = waiting ? m.welcomeAuthWaitingDescription
+    : phase === 'expired' ? m.welcomeAuthExpiredDescription
+      : phase !== 'failed' ? '' : attempt?.errorCode === 'storage' ? m.welcomeAuthStorageDescription
+        : attempt?.errorCode === 'protocol' ? m.welcomeAuthProtocolDescription : m.welcomeAuthServiceDescription
   const heading = page === 'entry' ? 'welcome-heading' : page === 'key' ? 'key-title' : 'auth-status'
 
   return <>
     {expiryNotice && <Toast text={m.welcomeSessionExpired} onDone={() => { setExpiryNotice(false) }} />}
     <div className="titlebar" aria-hidden="true" />
     <main className="welcome" aria-labelledby={heading}>
-      <img className="brand" src="assets/welcome-brand.svg" alt={m.welcomeBrand} width="472" height="40" />
+      {api.brandIcon === undefined
+        ? <img className="brand" src="assets/welcome-brand.svg" alt={m.welcomeBrand} width="472" height="40" />
+        : <div className="product-brand"><img src={api.brandIcon} alt="" width="40" height="40" />{api.brandWordmark === undefined
+          ? <span title={m.welcomeBrand}>{m.welcomeBrand}</span>
+          : <img className="product-wordmark" src={api.brandWordmark} alt={m.welcomeBrand} width="150" height="40" />}</div>}
       <div id="tagline" className="tagline" hidden={page !== 'entry'}>
         <h1 id="welcome-heading"><span>{m.welcomeTaglineBefore}</span><em>{m.welcomeTaglineBrand}</em><span>{m.welcomeTaglineAfter}</span></h1>
         <p id="welcome-description">{m.welcomeDescription}</p>
@@ -191,10 +199,10 @@ export function Welcome({ api }: { api: WelcomeApi }) {
           <p id="key-error" className="key-error" role="alert" hidden={error === ''}>{error}</p>
         </div>
       </form>
-      <section id="auth-page" className={`key-heading ${waiting ? 'auth-waiting' : phase === 'expired' ? 'auth-expired' : ''}`}
+      <section id="auth-page" className={`key-heading ${waiting ? 'auth-waiting' : failed ? 'auth-expired' : ''}`}
         hidden={page !== 'account'} aria-live="polite">
         <h1 id="auth-status">{title}</h1>
-        <p id="auth-description" hidden={!waiting && phase !== 'expired'}>{waiting ? m.welcomeAuthWaitingDescription : m.welcomeAuthExpiredDescription}</p>
+        <p id="auth-description" hidden={description === ''}>{description}</p>
         <button id="auth-copy" className="copy-link" type="button" hidden={!waiting} disabled={!waiting || (copyState === 'busy' || copyState === 'copied')} onClick={() => { void copyLink() }}>
           {copyState === 'copied' ? m.welcomeAuthCopied : copyState === 'failed' ? m.welcomeAuthCopyFailed : m.welcomeAuthCopyLink}
         </button>

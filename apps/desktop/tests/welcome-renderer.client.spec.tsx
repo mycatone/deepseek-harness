@@ -6,12 +6,12 @@ import { Welcome } from '../src/client/WelcomePage.tsx'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { resolveDesktopLocale } from '../src/locale.ts'
 import type { AccountView } from '@deepseek-ai/dsh-deepseek-account/types'
-import type { WelcomeSaveResult, WelcomeNotice } from '../src/welcome-api.ts'
+import type { WelcomeApi, WelcomeSaveResult, WelcomeNotice } from '../src/welcome-api.ts'
 
 const html = readFileSync(join(import.meta.dirname, '../renderer/welcome.html'), 'utf8')
 afterEach(cleanup)
 
-function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotice | undefined>>().mockResolvedValue(undefined)) {
+function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotice | undefined>>().mockResolvedValue(undefined), product: Pick<WelcomeApi, 'brandIcon' | 'brandWordmark'> = {}) {
   cleanup()
   const stopAccount = vi.fn()
   const api = {
@@ -23,6 +23,7 @@ function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotic
     cancelSignIn: vi.fn(async (): Promise<AccountView> => ({ links: { usageUrl: 'http://localhost/usage', topUpUrl: 'http://localhost/top_up' }, status: 'signed-out', attempt: null })),
     copySignInLink: vi.fn(async () => undefined),
     ...resolveDesktopLocale(language),
+    ...product,
     saveApiKey: vi.fn<(value: string) => Promise<WelcomeSaveResult>>().mockResolvedValue({ ok: true }),
     skip: vi.fn<() => Promise<void>>().mockResolvedValue(undefined),
   }
@@ -48,6 +49,23 @@ function mount(language = 'zh-CN', takeNotice = vi.fn<() => Promise<WelcomeNotic
 }
 
 describe('desktop welcome presentation', () => {
+  it('uses the dedicated product wordmark when the matching identity is supplied', () => {
+    const view = mount('en', undefined, { brandIcon: '../lib/welcome/product-icon.png', brandWordmark: '../lib/welcome/product-wordmark.svg' })
+    expect(view.document.querySelector<HTMLImageElement>('.product-wordmark')!.alt).toBe(view.api.messages.welcomeBrand)
+    expect(view.document.querySelector('.product-brand span')).toBeNull()
+  })
+  it('shows product artwork and a literal configurable name in place of the upstream wordmark', () => {
+    vi.stubEnv('DSH_CLIENT_TITLE', '555AI & <$&> ' + '自定义名称'.repeat(8))
+    try {
+      const view = mount('zh-CN', undefined, { brandIcon: '../lib/welcome/product-icon.png' })
+      const brand = view.document.querySelector('.product-brand')!
+      expect(brand.querySelector('img')!.getAttribute('src')).toBe('../lib/welcome/product-icon.png')
+      expect(brand.querySelector('span')!.textContent).toBe(view.api.messages.welcomeBrand)
+      expect(brand.querySelector('span')!.title).toBe(view.api.messages.welcomeBrand)
+      expect(view.document.querySelector('img[src="assets/welcome-brand.svg"]')).toBeNull()
+    } finally { vi.unstubAllEnvs() }
+  })
+
   it.each(['zh-CN', 'en'])('renders the %s entry and API-key step', async (language) => {
     const view = mount(language)
     expect(view.document.documentElement.lang).toBe(language)
@@ -154,6 +172,30 @@ describe('desktop welcome presentation', () => {
     expect(html).toContain("default-src 'none'")
     expect(html).toContain("form-action 'none'")
   })
+})
+
+it.each(['zh-CN', 'en'])('renders %s service failure with a safe next action before any browser URL exists', async (language) => {
+  const view = mount(language)
+  view.api.startSignIn.mockResolvedValue({ status: 'signed-out', links: { usageUrl: '', topUpUrl: '' },
+    attempt: { id: 'failed-init' as NonNullable<AccountView['attempt']>['id'], phase: 'failed', errorCode: 'network' } })
+  await act(async () => { fireEvent.click(view.button('#sign-in')) })
+  const description = view.document.querySelector<HTMLElement>('#auth-description')!
+  expect(description.hidden).toBe(false)
+  expect(description.textContent).toBe(view.api.messages.welcomeAuthServiceDescription)
+  expect(view.button('#auth-copy').hidden).toBe(true)
+  expect(view.button('#auth-retry').hidden).toBe(false)
+  await expect(view.copy() + description.textContent + '\n').toMatchFileSnapshot(`./expected/welcome/${language}-service-failed.expected.txt`)
+})
+
+it.each(['zh-CN', 'en', 'ja', 'es', 'fr', 'de', 'ru', 'pt'])('localizes service, protocol and credential storage failures in %s', (language) => {
+  const view = mount(language)
+  for (const [errorCode, message] of [['no-response', view.api.messages.welcomeAuthServiceDescription],
+    ['protocol', view.api.messages.welcomeAuthProtocolDescription], ['storage', view.api.messages.welcomeAuthStorageDescription]] as const) {
+    act(() => { view.api.onAccountState.mock.calls[0]![0]({ status: 'signed-out', links: { usageUrl: '', topUpUrl: '' },
+      attempt: { id: 'failed-init' as NonNullable<AccountView['attempt']>['id'], phase: 'failed', errorCode } }) })
+    expect(view.document.querySelector('#auth-description')!.textContent).toBe(message)
+    expect(message.length).toBeGreaterThan(10)
+  }
 })
 
 it.each(['zh-CN', 'en'])('renders %s timeout with manual retry and API-key alternative', async (language) => {
