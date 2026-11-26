@@ -36,7 +36,9 @@ node products/555ai/run.mjs package win-x64
 
 将 `defaultModel` 设为 `{ "provider": "deepseek-account", "model": "YOUR_GATEWAY_MODEL_ID" }`，可选填 `reasoningEffort`；也可以执行 `node products/555ai/run.mjs model deepseek-account YOUR_GATEWAY_MODEL_ID`。模型 id 必须来自已部署网关的实际目录。`null` 表示沿用标准配置中的选择。修改这些部署默认值后重新构建；已有会话保留自己的模型选择。
 
-黑白狗狗标志以用户提供的插画为原型，保存在 `assets/dog-mark.png`；`assets/wordmark.svg` 提供重新设计的 555AI 字标。先执行 `node --import tsx/esm products/555ai/render-icons.ts --preview` 检查单个 512px 图标，再去掉 `--preview` 生成应用、PWA、触屏、多尺寸托盘图片及 SVG 包装。Windows 无签名打包命令携带这些资源及品牌包；不发布更新，也不需要签名凭据。可信签名发行仍是独立的发布步骤。
+黑白狗狗标志以用户提供的插画为原型，使用白色背景，保存在 `assets/dog-mark.png`；`assets/wordmark.svg` 提供重新设计的 555AI 字标。先执行 `node --import tsx/esm products/555ai/render-icons.ts --preview` 检查单个 512px 图标，再去掉 `--preview` 生成应用、PWA、触屏、多尺寸托盘图片及 SVG 包装。Windows 无签名打包命令携带这些资源及品牌包；不发布更新，也不需要签名凭据。可信签名发行仍是独立的发布步骤。
+
+[下载网站](site/README.zh.md)构建独立的介绍页与安装包目录，供人工部署到 `https://hiai.chainlife.net/555ai/`。构建时要求真实 Windows 安装包，生成相对下载链接及 SHA-256 元数据，并从 `product.json` 读取产品名称。生成文件保存在源码树外的 `.dsh-build/555ai-site`。
 
 启动器在专用 home 中创建自己的 `cordis.patch.yml`，配置 hiAi 账号与推理来源，禁用官方品牌占位，并挂载 `@555ai/brand`。已有用户编写的同名文件不会被覆盖。品牌桌面构建也会在启动时初始化这份产品配置。
 
