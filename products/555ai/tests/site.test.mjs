@@ -47,6 +47,7 @@ test('a configurable product name remains literal text without escaping into pag
   const page = await readFile(join(sample.output, 'index.html'), 'utf8')
   assert.ok(page.includes('&lt;Next &amp; &quot;AI&quot;&gt;'))
   assert.ok(!page.includes('<Next'))
+  assert.ok(!page.includes('555AI'), 'renaming must also update the FAQ brand name')
 })
 
 test('missing installers and non-executable files stop site generation before a download is advertised', async t => {
