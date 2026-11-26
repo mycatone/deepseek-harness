@@ -1,8 +1,23 @@
 import { SHIPPED_LOCALE_IDS } from '../../../scripts/shipped-locales.ts'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import { en, formatDesktopMessage, resolveDesktopLocale, resolveDesktopStartupLocale, ja, zh, es, fr, de, ru, pt } from '../src/locale.ts'
 
 describe('desktop locale dictionaries', () => {
+  it('uses a renamed product literally in every desktop language', () => {
+    const name = 'Future $& <AI>'
+    vi.stubEnv('DSH_CLIENT_TITLE', name)
+    try {
+      for (const id of SHIPPED_LOCALE_IDS) {
+        const { messages } = resolveDesktopLocale(id)
+        expect(messages.aboutProduct).toBe(name)
+        expect(messages.quitTitle).toContain(name)
+        expect(messages.welcomeTitle).toBe(name)
+      }
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
   it('uses the same concise Chinese configuration error in the toast and details', () => {
     for (const message of [zh.updateConfigurationRead, zh.updateConfigurationFormat, zh.updateConfigurationChannel]) {
       expect(message).toBe('配置文件异常，更新已暂停')

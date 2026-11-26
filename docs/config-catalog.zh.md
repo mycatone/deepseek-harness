@@ -2725,6 +2725,24 @@ export interface LspLocalServerConfig {
 ```
 <!-- END GENERATED config-catalog:@deepseek-ai/dsh-lsp-stdio -->
 
+<!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-max-token-continuation -->
+<a id="deepseek-aidsh-max-token-continuation"></a>
+
+## `@deepseek-ai/dsh-max-token-continuation`
+
+- `source`: [`packages/guard/max-token-continuation/src/index.ts:38`](../packages/guard/max-token-continuation/src/index.ts)
+
+```ts config-catalog
+/** Plugin configuration. */
+export interface Config {
+  /** Maximum automatic continuations in one turn (default 3; 0 disables continuation). */
+  maxContinuations?: number
+  /** Model-facing instruction used for each automatic continuation. */
+  prompt?: string
+}
+```
+<!-- END GENERATED config-catalog:@deepseek-ai/dsh-max-token-continuation -->
+
 <!-- BEGIN GENERATED config-catalog:@deepseek-ai/dsh-mcp-client -->
 <a id="deepseek-aidsh-mcp-client"></a>
 

@@ -1,0 +1,16 @@
+# Only deterministic filesystem coordinates and todo calls are used by this scenario.
+- id: tool-bash
+  disabled: true
+- id: tool-pwsh
+  disabled: true
+- id: fs-sandbox
+  disabled: true
+- insert:
+    - id: task-guard-fixture-fs
+      name: '../../../packages/bundle/headless/tests/fixtures/provider-cwd.ts'
+      config:
+        root: /recorded-555ai-workspace
+    - id: ui-brand-555ai
+      name: '@555ai/brand'
+      config:
+        displayName: 555AI

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 270 64" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round">
+  <path id="five" d="M43 12H13v18h17c11 0 16 5 16 13S40 54 29 54H12"/>
+  <use href="#five" x="56"/>
+  <use href="#five" x="112"/>
+  <path d="m189 53 17-41h3l17 41m-30-13h23m24-28v41m-6-41h12m-12 41h12"/>
+</svg>

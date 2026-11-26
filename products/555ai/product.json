@@ -1,0 +1,9 @@
+{
+  "displayName": "555AI",
+  "slug": "555ai",
+  "appId": "net.chainlife.ai555",
+  "accountOrigin": "https://hiai.chainlife.net",
+  "inferenceOrigin": "https://hiai.chainlife.net",
+  "icons": "assets",
+  "defaultModel": null
+}

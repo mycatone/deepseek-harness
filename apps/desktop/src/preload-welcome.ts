@@ -10,6 +10,9 @@ const locale = process.argv.find(argument => argument.startsWith(prefix))?.slice
 if (locale === undefined) throw new Error('desktop welcome: missing window locale')
 const api: WelcomeApi = {
   ...resolveDesktopLocale(locale),
+  ...(process.env.DSH_DESKTOP_ICON_DIR === undefined ? {} : { brandIcon: '../lib/welcome/product-icon.png' }),
+  ...(process.env.DSH_DESKTOP_WORDMARK_FILE === undefined
+    ? {} : { brandWordmark: '../lib/welcome/product-wordmark.svg' }),
   analytics: async (eventName, attributes) => {
     if (await api.analyticsEnabled()) await ipcRenderer.invoke(WELCOME_IPC.analytics, eventName, attributes)
   },

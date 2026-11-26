@@ -1,0 +1,43 @@
+# Bilingual-pair consistency record for README.md (docs/i18n/README.md): per heading
+# section, a hash of its English and Chinese blocks outside code blocks and generated regions.
+# After editing either side, bring the other along and re-record with:
+#   pnpm run verify-translation-pairing --write products/555ai/README.md
+/:
+  en: a65dff8c746cea14
+  zh: 2a8e1ceae88ca452
+/555ai:
+  en: 92404f71df74101f
+  zh: 0b8f916e5dce77c7
+/555ai/summary:
+  en: 14ea8292d969f6c6
+  zh: f77b6a72789fd10d
+/555ai/table-of-contents:
+  en: 4e53164159b5ce41
+  zh: 281ecc5c727b240a
+/555ai/use-this-package:
+  en: ebe4da098d292674
+  zh: 57c6f78526f84545
+/555ai/model-experience:
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/555ai/model-experience/task-recovery-message:
+  en: e3b13e218f05ad6f
+  zh: 56e8224a63938ea0
+/555ai/model-experience/task-recovery-message/what-the-model-sees:
+  en: 2d11c276232e0627
+  zh: 05a2fa18d1473980
+/555ai/model-experience/task-recovery-message/what-the-model-sees/default-correction-message:
+  en: 6a27c132ae311442
+  zh: 85f956235c8fbfc9
+/555ai/model-experience/task-recovery-message/token-effect:
+  en: 6482e0e86b6a5e9f
+  zh: d2769cfc359c5037
+/555ai/model-experience/task-recovery-message/kv-cache-effect:
+  en: 37f90d6de4248b1b
+  zh: 7703ddab96050c64
+/555ai/known-limitations-and-deferred-work:
+  en: 31d9500e4dcbf4f2
+  zh: 0497d30e73e22c2a
+/555ai/known-limitations-and-deferred-work/dev-note:
+  en: 0a1253c6f7b5e8b9
+  zh: 9f56528562c7c914

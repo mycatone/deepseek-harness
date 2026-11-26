@@ -1,6 +1,7 @@
 import { defineConfig } from 'tsdown'
 import { build } from 'vite'
 import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 import { readFileSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { repositoryClientBuildEnvironment, resolveClientBuildEnvironment } from '../../scripts/client-build-environment.ts'
@@ -29,8 +30,14 @@ const clientEnvironment = resolveClientBuildEnvironment(process.env.DSH_CLIENT_V
 const clientVersion = clientEnvironment.DSH_CLIENT_VERSION
 if (clientVersion === undefined) throw new Error('desktop build: the client environment carries no DSH_CLIENT_VERSION')
 
-/** Inline the one public build value the Node entry reads; every other variable stays a runtime lookup. */
-const clientVersionDefine = { 'process.env.DSH_CLIENT_VERSION': JSON.stringify(clientVersion) }
+/** Inline the version and product identity shared by the desktop entry and preloads. */
+const clientVersionDefine = {
+  'process.env.DSH_CLIENT_VERSION': JSON.stringify(clientVersion),
+  'process.env.DSH_CLIENT_TITLE': JSON.stringify(clientEnvironment.DSH_CLIENT_TITLE ?? 'DeepSeek Harness'),
+  'process.env.DSH_CLIENT_PRODUCT_CONFIG': JSON.stringify(clientEnvironment.DSH_CLIENT_PRODUCT_CONFIG) ?? 'undefined',
+  'process.env.DSH_DESKTOP_ICON_DIR': JSON.stringify(process.env.DSH_DESKTOP_ICON_DIR) ?? 'undefined',
+  'process.env.DSH_DESKTOP_WORDMARK_FILE': JSON.stringify(process.env.DSH_DESKTOP_WORDMARK_FILE) ?? 'undefined',
+}
 
 export default defineConfig([
   {
@@ -63,6 +70,14 @@ export default defineConfig([
         plugins: [{
           name: 'desktop-shell-assets',
           async generateBundle() {
+            if (process.env.DSH_DESKTOP_ICON_DIR !== undefined) {
+              this.emitFile({ type: 'asset', fileName: 'product-icon.png',
+                source: await readFile(join(process.env.DSH_DESKTOP_ICON_DIR, 'icon.png')) })
+              if (process.env.DSH_DESKTOP_WORDMARK_FILE !== undefined) {
+                this.emitFile({ type: 'asset', fileName: 'product-wordmark.svg',
+                  source: await readFile(process.env.DSH_DESKTOP_WORDMARK_FILE) })
+              }
+            }
             for (const name of ['design-platform.css', 'brand-font.css', 'montserrat-regular.woff2', 'montserrat-light.woff2', 'montserrat-medium.woff2', 'Montserrat-OFL.txt']) {
               this.emitFile({
                 type: 'asset',
@@ -98,6 +113,7 @@ export default defineConfig([
     deps: { neverBundle: ['electron'] },
   },
   ...(['preload-app', 'preload-welcome', 'preload-platform-account', 'preload-mandatory', 'preload-update-dialog'] as const).map(name => ({
+    define: clientVersionDefine,
     // Sandboxed Electron preloads run as CommonJS even though the application package is ESM.
     entry: { [name]: `lib/types/${name}.js` },
     plugins: [packagedImportsPlugin(preloadImports)],

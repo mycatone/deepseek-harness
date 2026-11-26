@@ -1,4 +1,4 @@
-import { readFile, writeFile } from 'node:fs/promises'
+import { copyFile, readFile, writeFile } from 'node:fs/promises'
 import { resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineConfig } from 'vite'
@@ -21,11 +21,32 @@ function escapeHtmlText(value: string): string {
 
 /** Project the public build title into the initial HTML document. */
 function clientDocumentTitle(): Plugin {
-  const title = escapeHtmlText(process.env.DSH_CLIENT_TITLE ?? DEFAULT_CLIENT_TITLE)
+  const configured = process.env.DSH_CLIENT_TITLE
+  const title = escapeHtmlText(configured ?? DEFAULT_CLIENT_TITLE)
+  let outputDirectory = ''
+  let written = false
   return {
     name: 'dsh-client-document-title',
+    configResolved(config) { outputDirectory = resolve(config.root, config.build.outDir) },
     transformIndexHtml(html) {
-      return html.replace('<title>DSH Local Build</title>', `<title>${title}</title>`)
+      const titled = html.replace('<title>DSH Local Build</title>', () => `<title>${title}</title>`)
+      return configured === undefined ? titled : titled.replace('name="apple-mobile-web-app-title" content="DSH"',
+        () => `name="apple-mobile-web-app-title" content="${title.replaceAll('"', '&quot;')}"`)
+    },
+    writeBundle() { written = true },
+    async closeBundle() {
+      if (!written || configured === undefined) return
+      const path = resolve(outputDirectory, 'manifest.webmanifest')
+      const manifest = JSON.parse(await readFile(path, 'utf8')) as Record<string, unknown>
+      await writeFile(path, `${JSON.stringify({ ...manifest, name: configured, short_name: configured }, null, 2)}\n`)
+      const icons = process.env.DSH_DESKTOP_ICON_DIR
+      if (icons !== undefined) {
+        for (const [source, destination] of [
+          ['icon.svg', 'favicon.svg'], ['icon.svg', 'favicon-dark.svg'],
+          ['icon-192.png', 'icon-192.png'], ['icon-512.png', 'icon-512.png'],
+          ['icon-512.png', 'icon-maskable-512.png'], ['apple-touch-icon.png', 'apple-touch-icon.png'],
+        ]) await copyFile(resolve(icons, source), resolve(outputDirectory, destination))
+      }
     },
   }
 }

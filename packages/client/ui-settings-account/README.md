@@ -17,6 +17,8 @@ The Account settings section displays DeepSeek login state and offers browser si
 
 The sign-in dialog offers network troubleshooting only for `no-response` failures. HTTP, business, response-validation, storage, and account-stream failures retain the generic retry message.
 
+Private builds may set `DSH_CLIENT_TITLE` for the product name and `DSH_CLIENT_ACCOUNT_NAME` for the account provider name in account and onboarding dictionaries. The surrounding localized wording and named placeholders stay unchanged; replacing these names requires rebuilding the client.
+
 ## Table of Contents
 
 - [Use this package](#use-this-package)

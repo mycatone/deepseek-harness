@@ -1,6 +1,6 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { basename, dirname, join, resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 import { findPackagePathViolations } from './verify-package-paths.ts'
 
@@ -21,11 +21,32 @@ function scan(file: string, source: string) {
     writeFileSync(path, source)
     return findPackagePathViolations(root, path, new Set(['tool-present']))
   } finally {
+    if (dirname(resolve(root)) !== resolve(tmpdir()) || !basename(root).startsWith('dsh-package-paths-')) {
+      throw new Error('Package-path test cleanup escaped its temporary directory')
+    }
     rmSync(root, { recursive: true, force: true })
   }
 }
 
 describe('historical package references', () => {
+  it.each(['https', 'http'])('does not resolve a version-pinned %s resource against the current checkout', (scheme) => {
+    expect(scan('docs/upgrade-guide/example.md',
+      `[Previous version](${scheme}://github.com/deepseek-ai/deepseek-harness/blob/dsh-v0.2.1-alpha.2/${removedReference})`))
+      .toEqual([])
+  })
+
+  it('still rejects a stale local reference beside a version-pinned URL', () => {
+    const file = 'docs/current.md'
+    expect(scan(file, `[Old](https://example.com/${removedReference}) and ${removedReference}`))
+      .toEqual([{ file, line: 1, ref: removedReference }])
+  })
+
+  it('stops URL tokens at quotes before inspecting adjacent source strings', () => {
+    const file = 'packages/example/example/src/index.ts'
+    expect(scan(file, `const url="https://example.com/${removedReference}";const local="${removedReference}"`))
+      .toEqual([{ file, line: 1, ref: removedReference }])
+  })
+
   it.each(['v0.md', 'v3.md', 'v10.zh.md'])('preserves checked historical source paths in %s', (name) => {
     const file = `docs/persistence-changes/historical-formats/${name}`
     for (const newline of ['\n', '\r\n']) {

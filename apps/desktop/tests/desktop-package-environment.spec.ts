@@ -23,6 +23,11 @@ async function withDirectory(action: (directory: string) => Promise<void>): Prom
 }
 
 describe('Desktop local packaging configuration', () => {
+  it('keeps unsigned Windows packages independent of release policy and signing credentials', () => {
+    const local = { DSH_DESKTOP_APP_ID: 'net.chainlife.ai555' }
+    expect(() => { validateDesktopPackageEnvironment(local, WINDOWS, { unsigned: true }) }).not.toThrow()
+    expect(() => { validateDesktopPackageEnvironment(local, WINDOWS) }).toThrow('MANDATORY_UPDATE')
+  })
   it('loads file-owned compression and defaults to fast Windows archive compression', async () => {
     expect(resolveWindowsPackageSettings({}).compressionLevel).toBe(3)
     await withDirectory(async (directory) => {
