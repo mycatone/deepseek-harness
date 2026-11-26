@@ -7,14 +7,43 @@
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
-    "./config": { "types": "./config.d.mts", "default": "./config.mjs" },
+    "./config": {
+      "types": "./config.d.mts",
+      "default": "./config.mjs"
+    },
     "./package.json": "./package.json"
   },
   "main": "index.js",
-  "files": ["index.js", "client.js", "config.mjs", "config.d.mts", "product.json", "assets", "README.md"],
-  "devDependencies": { "sharp": "0.35.5" },
-  "dependencies": { "@deepseek-ai/schemastery": "workspace:~" },
-  "peerDependencies": { "@deepseek-ai/cordis": "workspace:~" },
+  "files": [
+    "index.js",
+    "client.js",
+    "config.mjs",
+    "config.d.mts",
+    "product.json",
+    "assets",
+    "README.md",
+    "task-guard.js",
+    "task-guard-state.mjs"
+  ],
+  "devDependencies": {
+    "sharp": "0.35.5",
+    "@deepseek-ai/dsh-agent-loop": "workspace:*",
+    "@deepseek-ai/dsh-agent-loop-testkit": "workspace:*",
+    "@deepseek-ai/dsh-session": "workspace:*",
+    "@deepseek-ai/dsh-llm": "workspace:*",
+    "@deepseek-ai/dsh-session-projection": "workspace:*",
+    "@deepseek-ai/cordis-plugin-loader": "workspace:~",
+    "@deepseek-ai/cordis-plugin-include": "workspace:~"
+  },
+  "dependencies": {
+    "@deepseek-ai/schemastery": "workspace:~",
+    "zod": "4.6.6"
+  },
+  "peerDependencies": {
+    "@deepseek-ai/cordis": "workspace:~",
+    "@deepseek-ai/dsh-llm": "workspace:*",
+    "@deepseek-ai/dsh-session-projection": "workspace:*"
+  },
   "dsh": {
     "client": {
       "platform": "web",

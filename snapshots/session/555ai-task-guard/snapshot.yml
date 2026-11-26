@@ -1,0 +1,9 @@
+version: 1
+scenario: 555ai-task-guard
+profile: headless
+composition: default
+recording: authored
+header:
+  class: 555ai-task-guard
+  pin: true
+permission: read-only

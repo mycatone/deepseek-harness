@@ -18,8 +18,23 @@
   en: ebe4da098d292674
   zh: 57c6f78526f84545
 /555ai/model-experience:
-  en: 00d8f28b87e8e3bb
-  zh: 1788f2cceb87cb3a
+  en: 215e7ba838619b7b
+  zh: a311da3843709f90
+/555ai/model-experience/task-recovery-message:
+  en: e3b13e218f05ad6f
+  zh: 56e8224a63938ea0
+/555ai/model-experience/task-recovery-message/what-the-model-sees:
+  en: 2d11c276232e0627
+  zh: 05a2fa18d1473980
+/555ai/model-experience/task-recovery-message/what-the-model-sees/default-correction-message:
+  en: 6a27c132ae311442
+  zh: 85f956235c8fbfc9
+/555ai/model-experience/task-recovery-message/token-effect:
+  en: 6482e0e86b6a5e9f
+  zh: d2769cfc359c5037
+/555ai/model-experience/task-recovery-message/kv-cache-effect:
+  en: 37f90d6de4248b1b
+  zh: 7703ddab96050c64
 /555ai/known-limitations-and-deferred-work:
   en: 31d9500e4dcbf4f2
   zh: 0497d30e73e22c2a

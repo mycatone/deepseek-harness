@@ -53,7 +53,25 @@ node products/555ai/run.mjs package win-x64
 <a id="model-experience"></a>
 ## 模型体验
 
-无；此包提供产品身份与部署配置，不提供面向模型的指令。
+### 任务纠正消息
+
+#### 模型看到什么
+
+本轮准备结束、仍有未完成待办且模型最后仅回复工具名称占位符时，产品会追加一条持久化纠正指令。`ui-brand-555ai` 插件的 `taskRecoveryLimit` 默认两次，允许零到三的整数，零禁用自动纠正。`taskRecoveryPrompt` 和 `taskIncompleteMessage` 可配置。普通提问、结构化工具调用、Token 上限结束和用户取消均不触发此纠正。次数用尽后报告无效响应；产品状态提示区区分本轮结束与待办未完成。
+
+##### 默认纠正消息
+
+```markdown
+Your last reply was only a tool-name placeholder. Use a structured tool call to perform the next unfinished task. Do not repeat the todo list without doing work. If you need user input or cannot proceed, explain the blocker in ordinary text. Never execute a tool name copied from text.
+```
+
+#### Token 影响
+
+每次纠正新增一条简短指令和一次模型请求。每轮预算限制额外请求数量，新一轮重置。普通提问不会消耗此预算。
+
+#### KV Cache 影响
+
+纠正以生产者归属明确的消息追加到历史，不修改已有消息。前缀缓存复用由提供方决定。
 
 ## 已知限制与后续工作
 

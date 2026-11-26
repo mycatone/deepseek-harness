@@ -10,7 +10,8 @@ test('brand names remain literal React text and react to the injected name', () 
   })
   const plugin = descriptor.factory(() => ({ createElement: (tag, props, text) => ({ tag, props, text }) }))
   const registrations = []
-  const ctx = { slots: { inject: (_name, install) => install(), register: (slot, component) => registrations.push({ slot, component }) } }
+  const ctx = { effect: install => install(), locale: { register: () => () => {} },
+    slots: { inject: (_name, install) => install(), register: (slot, component) => registrations.push({ slot, component }) } }
   plugin.apply(ctx, { displayName: {} })
   const brand = registrations.find(row => row.slot.name === 'sidebar.brand.name')
   for (const name of ['555AI', 'Next $& <AI>']) {
@@ -19,4 +20,10 @@ test('brand names remain literal React text and react to the injected name', () 
   const mark = registrations.find(row => row.slot.name === 'conversation.hero.brand.mark').component()
   assert.equal(mark.tag, 'img')
   assert.equal(mark.props.src, '/favicon.svg')
+  const status = registrations.find(row => row.slot.id === '555ai-task-status').component
+  assert.equal(status({ useProjection: () => ({ ended: false, remaining: 2 }) }), null)
+  assert.equal(status({ useProjection: () => ({ ended: true, remaining: 0 }) }), null)
+  const warning = status({ useProjection: () => ({ ended: true, remaining: 2 }), t: (_key, value) => `remaining ${value.count}` })
+  assert.equal(warning.props.role, 'status')
+  assert.equal(warning.text, 'remaining 2')
 })

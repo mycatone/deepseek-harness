@@ -53,7 +53,25 @@ Keep product development on `product/555ai` and follow official changes through 
 <a id="model-experience"></a>
 ## Model Experience
 
-None; this package supplies product identity and deployment configuration, not model-facing instructions.
+### Task recovery message
+
+#### What the model sees
+
+When a stopping turn has unfinished todos and its last model response is only a tool-name placeholder, the product appends one recorded correction message. `taskRecoveryLimit` on the `ui-brand-555ai` plugin defaults to two, accepts integers from zero to three, and zero disables automatic correction. `taskRecoveryPrompt` and `taskIncompleteMessage` are configurable. Normal questions, structured tool calls, token-limit stops and user cancellation do not trigger this correction. Exhaustion reports an invalid response; the product status dock distinguishes an ended run from unfinished todos.
+
+##### Default correction message
+
+```markdown
+Your last reply was only a tool-name placeholder. Use a structured tool call to perform the next unfinished task. Do not repeat the todo list without doing work. If you need user input or cannot proceed, explain the blocker in ordinary text. Never execute a tool name copied from text.
+```
+
+#### Token effect
+
+Each correction adds one short instruction and one model request. The per-turn budget bounds additional requests; it resets for a new turn. A normal question never spends this budget.
+
+#### KV Cache effect
+
+Corrections append producer-attributed messages without editing previous history. Prefix cache reuse remains provider-dependent.
 
 ## Known Limitations and Deferred Work
 
